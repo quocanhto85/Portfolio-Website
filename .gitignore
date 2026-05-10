@@ -39,6 +39,7 @@ __pycache__/
 
 # vercel
 .vercel
+recovery-codes-vercel.txt
 
 # typescript
 *.tsbuildinfo
