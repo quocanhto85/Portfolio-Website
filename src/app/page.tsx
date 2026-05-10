@@ -20,10 +20,28 @@ const projects: ProjectCard[] = [
 ];
 
 const links = [
-  { label: "Email", value: "channel:01" },
-  { label: "LinkedIn", value: "channel:02" },
-  { label: "GitHub", value: "channel:03" },
-  { label: "Resume", value: "channel:04" },
+  {
+    label: "Email",
+    value: "channel:01",
+    href: "mailto:quocanhtophuong@gmail.com",
+  },
+  {
+    label: "LinkedIn",
+    value: "channel:02",
+    href: "https://www.linkedin.com/in/quoc-anh-to-79024b148/",
+    opensNewTab: true,
+  },
+  {
+    label: "GitHub",
+    value: "channel:03",
+    href: "https://github.com/quocanhto85",
+    opensNewTab: true,
+  },
+  {
+    label: "Resume",
+    value: "channel:04",
+    href: "/resume",
+  },
 ];
 
 export default function Home() {
@@ -32,7 +50,7 @@ export default function Home() {
       <section className="mx-auto flex w-full max-w-6xl flex-col gap-6">
         <header className="flex flex-col gap-3">
           <h1 className="text-4xl font-semibold tracking-tight md:text-5xl">
-            🦇 Quoc Anh's Batcave
+            🦇 Quoc Anh&apos;s Batcave
           </h1>
           <nav className="relative overflow-hidden rounded-2xl border border-cyan-300/60 bg-[linear-gradient(145deg,rgba(0,30,38,0.8),rgba(0,8,18,0.92))] p-4 shadow-[0_0_0_1px_rgba(34,220,255,0.15),0_0_24px_rgba(0,196,255,0.16),inset_0_0_30px_rgba(0,149,255,0.08)]">
             <div className="pointer-events-none absolute inset-0 opacity-35 [background-image:linear-gradient(rgba(88,251,255,0.09)_1px,transparent_1px),linear-gradient(90deg,rgba(88,251,255,0.07)_1px,transparent_1px)] [background-size:18px_18px]" />
@@ -47,7 +65,9 @@ export default function Home() {
               {links.map((link) => (
                 <a
                   key={link.label}
-                  href="#"
+                  href={link.href}
+                  target={link.opensNewTab ? "_blank" : undefined}
+                  rel={link.opensNewTab ? "noreferrer" : undefined}
                   className="flex items-baseline justify-between gap-2 rounded-lg border border-cyan-300/40 bg-[linear-gradient(180deg,rgba(2,30,45,0.55),rgba(0,10,20,0.72))] px-3 py-2 text-sm text-cyan-50 transition hover:-translate-y-0.5 hover:border-cyan-200 hover:shadow-[0_0_12px_rgba(69,229,255,0.26)]"
                 >
                   <span>{link.label}</span>
