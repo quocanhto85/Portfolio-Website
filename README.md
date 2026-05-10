@@ -1,36 +1,50 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Batcave Portfolio (Next.js + Django)
 
-## Getting Started
+Batman-inspired dark portfolio frontend with a Django backend, designed to deploy on free Vercel.
 
-First, run the development server:
+## Stack
+
+- Frontend: Next.js App Router + Tailwind CSS
+- Backend: Django (WSGI entry in `api/index.py`)
+- Hosting: Vercel (single project)
+
+## Local development
+
+### 1) Frontend
 
 ```bash
+npm install
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open [http://localhost:3000](http://localhost:3000).
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+### 2) Backend (local run)
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+python manage.py migrate
+python manage.py runserver 8000
+```
 
-## Learn More
+Try:
 
-To learn more about Next.js, take a look at the following resources:
+- `http://127.0.0.1:8000/api/health`
+- `http://127.0.0.1:8000/api/projects`
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Deploy to Vercel (free)
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+1. Push this repo to GitHub.
+2. Import the repo in Vercel.
+3. Keep framework preset as Next.js.
+4. Deploy.
 
-## Deploy on Vercel
+`vercel.json` is already configured to route `/api/*` to Django via `api/index.py`.
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## Customize content
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- UI content cards: `src/app/page.tsx`
+- Theme and gradients: `src/app/globals.css`
+- API responses: `api/index.py`

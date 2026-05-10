@@ -1,8 +1,8 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #06070d;
+  --foreground: #f4f5ff;
 }
 
 @theme inline {
@@ -14,13 +14,144 @@
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+    --background: #06070d;
+    --foreground: #f4f5ff;
   }
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-geist-sans), Arial, Helvetica, sans-serif;
+}
+
+.bg-batcave {
+  background:
+    radial-gradient(circle at 0% 0%, rgba(118, 67, 227, 0.24), transparent 40%),
+    radial-gradient(circle at 100% 0%, rgba(30, 196, 255, 0.18), transparent 35%),
+    linear-gradient(180deg, #0a0f1f 0%, #06070d 60%, #04050a 100%);
+}
+
+.batcave-panel {
+  background: linear-gradient(
+    160deg,
+    rgba(14, 19, 35, 0.88) 0%,
+    rgba(10, 10, 16, 0.88) 100%
+  );
+  box-shadow:
+    0 0 0 1px rgba(174, 140, 255, 0.07),
+    0 20px 40px rgba(0, 0, 0, 0.5),
+    inset 0 1px 0 rgba(255, 255, 255, 0.04);
+  backdrop-filter: blur(4px);
+}
+
+.monitor-screen {
+  position: relative;
+  overflow: hidden;
+  border: 1px solid rgba(57, 243, 255, 0.5);
+  border-radius: 14px;
+  padding: 0.9rem;
+  background:
+    linear-gradient(145deg, rgba(0, 30, 38, 0.8), rgba(0, 8, 18, 0.92)),
+    radial-gradient(circle at 85% 10%, rgba(0, 240, 255, 0.22), transparent 32%);
+  box-shadow:
+    0 0 0 1px rgba(34, 220, 255, 0.15),
+    0 0 24px rgba(0, 196, 255, 0.16),
+    inset 0 0 30px rgba(0, 149, 255, 0.08);
+}
+
+.monitor-grid-overlay {
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(rgba(88, 251, 255, 0.09) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(88, 251, 255, 0.07) 1px, transparent 1px);
+  background-size: 18px 18px;
+  opacity: 0.35;
+  pointer-events: none;
+}
+
+.monitor-header {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  border-bottom: 1px solid rgba(68, 224, 255, 0.35);
+  margin-bottom: 0.85rem;
+  padding-bottom: 0.6rem;
+}
+
+.monitor-dot {
+  width: 0.55rem;
+  height: 0.55rem;
+  border-radius: 999px;
+  background-color: #39f3ff;
+  box-shadow: 0 0 12px rgba(57, 243, 255, 0.9);
+}
+
+.monitor-title {
+  font-size: 0.72rem;
+  letter-spacing: 0.18em;
+  color: #90f9ff;
+}
+
+.monitor-scan {
+  margin-left: auto;
+  font-size: 0.65rem;
+  letter-spacing: 0.14em;
+  color: #43f7cf;
+}
+
+.monitor-links {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.5rem;
+}
+
+.monitor-link {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.5rem;
+  border: 1px solid rgba(70, 224, 255, 0.35);
+  border-radius: 8px;
+  padding: 0.45rem 0.6rem;
+  background: linear-gradient(180deg, rgba(2, 30, 45, 0.55), rgba(0, 10, 20, 0.72));
+  color: #c5fdff;
+  font-size: 0.82rem;
+  transition: all 0.2s ease;
+}
+
+.monitor-link:hover {
+  border-color: rgba(103, 238, 255, 0.75);
+  color: #e5ffff;
+  box-shadow: 0 0 12px rgba(69, 229, 255, 0.26);
+  transform: translateY(-1px);
+}
+
+.monitor-link-value {
+  font-size: 0.62rem;
+  letter-spacing: 0.08em;
+  color: #61dae1;
+}
+
+.card-image-grid {
+  background:
+    radial-gradient(circle at 80% 15%, rgba(0, 255, 248, 0.2), transparent 30%),
+    linear-gradient(145deg, rgba(77, 35, 170, 0.8), rgba(4, 18, 46, 0.95));
+}
+
+.card-image-pipeline {
+  background:
+    radial-gradient(circle at 10% 30%, rgba(255, 124, 94, 0.28), transparent 35%),
+    linear-gradient(145deg, rgba(15, 31, 95, 0.9), rgba(51, 11, 45, 0.85));
+}
+
+.card-image-robot {
+  background:
+    radial-gradient(circle at 70% 35%, rgba(84, 200, 255, 0.28), transparent 30%),
+    linear-gradient(145deg, rgba(10, 52, 92, 0.9), rgba(29, 16, 75, 0.85));
 }
