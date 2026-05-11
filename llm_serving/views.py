@@ -19,12 +19,14 @@ import hashlib
 import json
 import logging
 import time
+import uuid
 from typing import AsyncIterator, Optional
 
 import httpx
 from adrf.views import APIView as AsyncAPIView
 from asgiref.sync import sync_to_async
 from django.conf import settings
+from django.db import DatabaseError, OperationalError
 from django.db.models import Avg
 from django.http import JsonResponse, StreamingHttpResponse
 from rest_framework import status
@@ -36,6 +38,27 @@ from .observability import flush as lf_flush, get_client as get_lf_client
 from .rate_limiter import SlidingWindowRateLimiter
 
 logger = logging.getLogger(__name__)
+
+# Tuple of ORM exceptions we want to gracefully degrade on. Hit when the
+# database is read-only (Vercel filesystem), missing (no migrations on a
+# fresh serverless deploy), or otherwise unavailable.
+_DB_ERRORS = (OperationalError, DatabaseError)
+
+
+class _EphemeralSession:
+    """In-memory stand-in for ChatSession when the DB isn't writable.
+
+    Carries the bare minimum the streaming path needs: a stringifiable id and
+    an ip_hash. Langfuse remains the durable conversation log.
+    """
+
+    __slots__ = ("id", "pk", "ip_hash", "total_messages")
+
+    def __init__(self, ip_hash: str) -> None:
+        self.id = uuid.uuid4()
+        self.pk = self.id
+        self.ip_hash = ip_hash
+        self.total_messages = 0
 
 
 # --- helpers ----------------------------------------------------------------
@@ -70,39 +93,58 @@ def _cors_headers(request) -> dict:
 
 
 @sync_to_async
-def _get_or_create_session(session_id: Optional[str], ip_hash: str) -> ChatSession:
-    if session_id:
-        try:
-            return ChatSession.objects.get(id=session_id)
-        except (ChatSession.DoesNotExist, ValueError):
-            pass
-    return ChatSession.objects.create(ip_hash=ip_hash)
+def _get_or_create_session(session_id: Optional[str], ip_hash: str):
+    """Return a ChatSession from the DB if reachable, else an EphemeralSession.
+
+    Vercel's filesystem is read-only outside /tmp, so SQLite writes fail there.
+    We log once and fall through; the request continues unaffected.
+    """
+    try:
+        if session_id:
+            try:
+                return ChatSession.objects.get(id=session_id)
+            except (ChatSession.DoesNotExist, ValueError):
+                pass
+        return ChatSession.objects.create(ip_hash=ip_hash)
+    except _DB_ERRORS as exc:
+        logger.warning("DB unavailable; using ephemeral session (%s)", exc)
+        return _EphemeralSession(ip_hash)
 
 
 @sync_to_async
-def _save_user_message(session: ChatSession, content: str) -> None:
-    ChatMessage.objects.create(
-        session=session, role=ChatMessage.ROLE_USER, content=content
-    )
-    ChatSession.objects.filter(pk=session.pk).update(
-        total_messages=session.total_messages + 1
-    )
+def _save_user_message(session, content: str) -> None:
+    if isinstance(session, _EphemeralSession):
+        return
+    try:
+        ChatMessage.objects.create(
+            session=session, role=ChatMessage.ROLE_USER, content=content
+        )
+        ChatSession.objects.filter(pk=session.pk).update(
+            total_messages=session.total_messages + 1
+        )
+    except _DB_ERRORS as exc:
+        logger.warning("Skipping user-message persistence: %s", exc)
 
 
 @sync_to_async
 def _save_assistant_message(
-    session: ChatSession, content: str, tokens: int, latency_ms: int
+    session, content: str, tokens: int, latency_ms: int
 ) -> None:
-    ChatMessage.objects.create(
-        session=session,
-        role=ChatMessage.ROLE_ASSISTANT,
-        content=content,
-        tokens_generated=tokens,
-        latency_ms=latency_ms,
-    )
-    ChatSession.objects.filter(pk=session.pk).update(
-        total_messages=session.total_messages + 1
-    )
+    if isinstance(session, _EphemeralSession):
+        return
+    try:
+        ChatMessage.objects.create(
+            session=session,
+            role=ChatMessage.ROLE_ASSISTANT,
+            content=content,
+            tokens_generated=tokens,
+            latency_ms=latency_ms,
+        )
+        ChatSession.objects.filter(pk=session.pk).update(
+            total_messages=session.total_messages + 1
+        )
+    except _DB_ERRORS as exc:
+        logger.warning("Skipping assistant-message persistence: %s", exc)
 
 
 # --- streaming generator ----------------------------------------------------
@@ -378,16 +420,26 @@ class AlfredStatsView(AsyncAPIView):
 
     @sync_to_async
     def _gather(self) -> dict:
-        total_sessions = ChatSession.objects.count()
-        total_messages = ChatMessage.objects.count()
-        avg_latency = ChatMessage.objects.filter(
-            role=ChatMessage.ROLE_ASSISTANT, latency_ms__isnull=False
-        ).aggregate(avg=Avg("latency_ms"))["avg"]
-        return {
-            "total_sessions": total_sessions,
-            "total_messages": total_messages,
-            "avg_latency_ms": round(avg_latency, 2) if avg_latency else None,
-        }
+        try:
+            total_sessions = ChatSession.objects.count()
+            total_messages = ChatMessage.objects.count()
+            avg_latency = ChatMessage.objects.filter(
+                role=ChatMessage.ROLE_ASSISTANT, latency_ms__isnull=False
+            ).aggregate(avg=Avg("latency_ms"))["avg"]
+            return {
+                "total_sessions": total_sessions,
+                "total_messages": total_messages,
+                "avg_latency_ms": round(avg_latency, 2) if avg_latency else None,
+                "persistence": "db",
+            }
+        except _DB_ERRORS as exc:
+            logger.warning("Stats: DB unavailable (%s)", exc)
+            return {
+                "total_sessions": 0,
+                "total_messages": 0,
+                "avg_latency_ms": None,
+                "persistence": "ephemeral",
+            }
 
     async def get(self, request, *args, **kwargs):
         data = await self._gather()
