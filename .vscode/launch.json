@@ -1,0 +1,70 @@
+{
+  // Debug configs for the Django backend.
+  //
+  // VS Code's default "Run Without Debugging" (Ctrl+F5) runs the *currently
+  // open file* as a plain Python script — it does NOT set
+  // DJANGO_SETTINGS_MODULE, so importing anything that touches DRF (which
+  // reads api_settings at class definition time) blows up with
+  //   ImproperlyConfigured: Requested setting REST_FRAMEWORK, but settings
+  //   are not configured.
+  //
+  // Pick "Django: runserver" from the Run-and-Debug dropdown and press F5
+  // (or Ctrl+F5 to skip the debugger). The configs below set the env var
+  // and entrypoint correctly.
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Django: runserver",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "${workspaceFolder}/manage.py",
+      "args": ["runserver", "8000", "--noreload"],
+      "django": true,
+      "console": "integratedTerminal",
+      "justMyCode": false,
+      "env": {
+        "DJANGO_SETTINGS_MODULE": "django_portfolio.settings",
+        "PYTHONUNBUFFERED": "1"
+      }
+    },
+    {
+      "name": "Django: shell",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "${workspaceFolder}/manage.py",
+      "args": ["shell"],
+      "django": true,
+      "console": "integratedTerminal",
+      "justMyCode": false,
+      "env": {
+        "DJANGO_SETTINGS_MODULE": "django_portfolio.settings"
+      }
+    },
+    {
+      "name": "Django: migrate",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "${workspaceFolder}/manage.py",
+      "args": ["migrate"],
+      "django": true,
+      "console": "integratedTerminal",
+      "env": {
+        "DJANGO_SETTINGS_MODULE": "django_portfolio.settings"
+      }
+    },
+    {
+      // Use this only for one-off scripts. It pre-sets the settings module
+      // so imports of llm_serving / adrf don't blow up.
+      "name": "Python: Current File",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "${file}",
+      "console": "integratedTerminal",
+      "justMyCode": false,
+      "env": {
+        "DJANGO_SETTINGS_MODULE": "django_portfolio.settings",
+        "PYTHONPATH": "${workspaceFolder}"
+      }
+    }
+  ]
+}

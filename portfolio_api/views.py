@@ -10,20 +10,10 @@ def get_projects(_request):
         {
             "projects": [
                 {
-                    "title": "Teaching Qwen to do better translation via fine-tuning",
-                    "date": "2026-04-15",
+                    "title": "Futuristic Autonomous Tram Technology in Smart Cities",
+                    "date": "2025-07-12",
                     "category": "AI",
-                },
-                {
-                    "title": "Document Search Agent",
-                    "date": "2026-03-28",
-                    "category": "RAG",
-                },
-                {
-                    "title": "LLM Code Execution Agent",
-                    "date": "2026-03-22",
-                    "category": "Agents",
-                },
+                }
             ]
         }
     )
