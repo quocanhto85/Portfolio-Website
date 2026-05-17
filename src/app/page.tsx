@@ -1,5 +1,4 @@
 import Image from "next/image";
-import Alfred from "./components/Alfred";
 
 type ProjectCard = {
   title: string;
@@ -126,7 +125,6 @@ export default function Home() {
           ))}
         </section>
       </section>
-      <Alfred />
     </main>
   );
 }
