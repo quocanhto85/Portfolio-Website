@@ -50,7 +50,7 @@ export default function Home() {
       <section className="mx-auto flex w-full max-w-6xl flex-col gap-6">
         <header className="flex flex-col gap-3">
           <h1 className="text-4xl font-semibold tracking-tight md:text-5xl">
-            🦇 Quoc Anh&apos;s Portfolio
+            🦇 Quoc Anh&apos;s Batcave is being built...
           </h1>
           <nav className="relative overflow-hidden rounded-2xl border border-cyan-300/60 bg-[linear-gradient(145deg,rgba(0,30,38,0.8),rgba(0,8,18,0.92))] p-4 shadow-[0_0_0_1px_rgba(34,220,255,0.15),0_0_24px_rgba(0,196,255,0.16),inset_0_0_30px_rgba(0,149,255,0.08)]">
             <div className="pointer-events-none absolute inset-0 opacity-35 [background-image:linear-gradient(rgba(88,251,255,0.09)_1px,transparent_1px),linear-gradient(90deg,rgba(88,251,255,0.07)_1px,transparent_1px)] [background-size:18px_18px]" />
