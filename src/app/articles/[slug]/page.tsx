@@ -26,6 +26,37 @@ export async function generateMetadata({
   };
 }
 
+function renderParagraphWithLinks(
+  text: string,
+  links?: { text: string; href: string }[]
+) {
+  if (!links?.length) return text;
+
+  const parts: React.ReactNode[] = [];
+  let remaining = text;
+
+  for (const link of links) {
+    const idx = remaining.indexOf(link.text);
+    if (idx === -1) continue;
+    if (idx > 0) parts.push(remaining.slice(0, idx));
+    parts.push(
+      <a
+        key={link.href}
+        href={link.href}
+        target="_blank"
+        rel="noreferrer"
+        className="text-cyan-200 underline underline-offset-4 transition hover:text-cyan-50"
+      >
+        {link.text}
+      </a>
+    );
+    remaining = remaining.slice(idx + link.text.length);
+  }
+
+  if (remaining) parts.push(remaining);
+  return parts;
+}
+
 function renderBlock(block: ContentBlock, index: number) {
   switch (block.type) {
     case "heading":
@@ -72,7 +103,7 @@ function renderBlock(block: ContentBlock, index: number) {
     default:
       return (
         <p key={index} className="text-cyan-100/85">
-          {block.text}
+          {renderParagraphWithLinks(block.text, block.links)}
         </p>
       );
   }

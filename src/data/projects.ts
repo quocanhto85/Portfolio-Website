@@ -1,5 +1,9 @@
 export type ContentBlock =
-  | { type: "paragraph"; text: string }
+  | {
+      type: "paragraph";
+      text: string;
+      links?: { text: string; href: string }[];
+    }
   | { type: "heading"; text: string }
   | { type: "list"; items: string[] }
   | { type: "video"; src: string; poster?: string; caption?: string };
@@ -84,11 +88,17 @@ export const projects: Project[] = [
       { type: "heading", text: "What's next?" },
       {
         type: "paragraph",
-        text: "I'm looking at incorporating semantic segmentation and possibly RANSAC filtering to clean things up. Maybe even some reinforcement learning down the line. I also want to leverage SOTA object detector model such as YOLO26 (released in September 2025) to increase the robustness of the system.",
+        text: "For future work, I'm looking at incorporating semantic segmentation and possibly RANSAC filtering to clean things up. Maybe even some reinforcement learning down the line. I also want to leverage SOTA object detector model such as YOLO26 (released in September 2025) to increase the robustness of the system.",
       },
       {
         type: "paragraph",
         text: "None of this would have been possible without the guidance of my supervisor, Dr Mehdi Hosseinzadeh. I deeply appreciate him for his indispensable guidance and support throughout this research journey.",
+        links: [
+          {
+            text: "Dr Mehdi Hosseinzadeh",
+            href: "https://researchers.adelaide.edu.au/profile/mehdi.hosseinzadeh",
+          },
+        ],
       },
     ],
   },
