@@ -1,23 +1,6 @@
 import Image from "next/image";
-
-type ProjectCard = {
-  title: string;
-  date: string;
-  description: string;
-  imageSrc: string;
-  tags: string[];
-};
-
-const projects: ProjectCard[] = [
-  {
-    title: "Futuristic Autonomous Tram Technology in Smart Cities",
-    date: "2025-12-07",
-    description:
-      "Object-based Visual SLAM system developed for addressing the complexity introduced by dynamic obstacles (e.g., vehicles, pedestrians) along with infrastructure components (e.g., traffic lights, stations).",
-    imageSrc: "/images/tram.png",
-    tags: ["AI", "Computer Vision", "Robotics", "Visual SLAM", "ORB-SLAM3", "ByteTrack", "CubeSLAM", "Docker"],
-  }
-];
+import Link from "next/link";
+import { projects } from "@/data/projects";
 
 const links = [
   {
@@ -91,22 +74,23 @@ export default function Home() {
 
         <section className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
           {projects.map((project) => (
-            <article
-              key={project.title}
-              className="group relative overflow-hidden rounded-2xl border border-cyan-300/45 bg-[linear-gradient(145deg,rgba(0,30,38,0.78),rgba(0,8,18,0.92))] shadow-[0_0_0_1px_rgba(34,220,255,0.12),0_0_24px_rgba(0,196,255,0.14),inset_0_0_30px_rgba(0,149,255,0.07)]"
+            <Link
+              key={project.slug}
+              href={`/articles/${project.slug}`}
+              className="group relative block overflow-hidden rounded-2xl border border-cyan-300/45 bg-[linear-gradient(145deg,rgba(0,30,38,0.78),rgba(0,8,18,0.92))] shadow-[0_0_0_1px_rgba(34,220,255,0.12),0_0_24px_rgba(0,196,255,0.14),inset_0_0_30px_rgba(0,149,255,0.07)] transition-all duration-300 hover:-translate-y-1 hover:border-cyan-200 hover:shadow-[0_0_0_1px_rgba(103,238,255,0.55),0_0_45px_rgba(0,221,255,0.45),inset_0_0_36px_rgba(0,196,255,0.18)] focus-visible:outline-none focus-visible:border-cyan-200 focus-visible:shadow-[0_0_0_1px_rgba(103,238,255,0.55),0_0_45px_rgba(0,221,255,0.45),inset_0_0_36px_rgba(0,196,255,0.18)]"
             >
-              <div className="pointer-events-none absolute inset-0 opacity-25 [background-image:linear-gradient(rgba(88,251,255,0.08)_1px,transparent_1px),linear-gradient(90deg,rgba(88,251,255,0.06)_1px,transparent_1px)] [background-size:18px_18px]" />
-              <div className="relative h-72 w-full border-b border-cyan-300/25 bg-black/30">
+              <div className="pointer-events-none absolute inset-0 opacity-25 transition-opacity duration-300 group-hover:opacity-40 [background-image:linear-gradient(rgba(88,251,255,0.08)_1px,transparent_1px),linear-gradient(90deg,rgba(88,251,255,0.06)_1px,transparent_1px)] [background-size:18px_18px]" />
+              <div className="relative h-72 w-full overflow-hidden border-b border-cyan-300/25 bg-black/30">
                 <Image
                   src={project.imageSrc}
                   alt={project.title}
                   fill
-                  className="object-cover"
+                  className="object-cover transition-transform duration-500 group-hover:scale-105"
                 />
               </div>
               <div className="relative z-10 space-y-3 p-4">
                 <p className="text-xs text-cyan-200/70">{project.date}</p>
-                <h2 className="text-lg leading-tight text-cyan-50">
+                <h2 className="text-lg leading-tight text-cyan-50 transition-colors duration-300 group-hover:text-white">
                   {project.title}
                 </h2>
                 <p className="text-sm text-cyan-100/85">{project.description}</p>
@@ -121,7 +105,7 @@ export default function Home() {
                   ))}
                 </div>
               </div>
-            </article>
+            </Link>
           ))}
         </section>
       </section>
