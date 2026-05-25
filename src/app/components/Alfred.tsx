@@ -333,7 +333,7 @@ export default function Alfred() {
           </form>
 
           <footer className="relative z-10 border-t border-cyan-300/20 px-3 py-1.5 text-center text-[10px] tracking-wide text-cyan-200/55">
-            10 requests / minute · Powered by Ollama
+            10 requests / minute
           </footer>
         </section>
       )}
