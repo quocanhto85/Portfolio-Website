@@ -121,7 +121,7 @@ export const projects: Project[] = [
           subtitle: "COMP SCI 7205 — Artificial Intelligence & Machine Learning Research Project",
           venue: "The University of Adelaide · Trimester 3, 2025",
           supervisor: "Dr Mehdi Hosseinzadeh",
-          pages: 67,
+          pages: 31,
           fileSize: "6.5 MB",
           url: "https://pub-27f650efa3f2462eb4b1244f26fb5d0a.r2.dev/documents/towards_object_based_vslam.pdf",
         },
