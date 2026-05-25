@@ -17,6 +17,14 @@ export type ContentBlock =
   | { type: "heading"; text: string }
   | { type: "list"; items: string[] }
   | { type: "video"; src: string; poster?: string; caption?: string }
+  | {
+      type: "image";
+      src: string;
+      alt: string;
+      caption?: string;
+      width: number;
+      height: number;
+    }
   | { type: "report"; label?: string; paper: PaperMeta };
 
 export type Project = {
@@ -59,6 +67,29 @@ export const projects: Project[] = [
       {
         type: "paragraph",
         text: "The core question I wanted to tackle was pretty straightforward. How do we help a vehicle \"see\" and understand dynamic urban scenes, cars cutting across, cyclists appearing out of nowhere, pedestrians doing unpredictable things, while simultaneously building a map and knowing where it is?",
+      },
+      { type: "heading", text: "Where the architecture started" },
+      {
+        type: "paragraph",
+        text: "Before any code, the whole system lived on grid paper. These two sketches capture how the idea evolved from a rough ORB-SLAM plus detector sketch into a concrete plan for fusing sparse point landmarks with 3D object cubes in one map.",
+      },
+      {
+        type: "image",
+        src: "/images/SLAM_Integration_2.png",
+        alt: "Early handwritten sketch: ORB-SLAM mapping and localisation stages, an object detector producing 2D bounding boxes, and axis-aligned 3D boxes in world coordinates.",
+        caption:
+          "First pass — ORB-SLAM for mapping and localisation, an object detector for {b₁, b₂, …, bₙ}, and lifting detections into axis-aligned 3D bounding boxes.",
+        width: 1000,
+        height: 1179,
+      },
+      {
+        type: "image",
+        src: "/images/SLAM_Integration_1.png",
+        alt: "Handwritten architecture diagram: video frames through ORB-SLAM to camera pose T_cw and a point-cloud map, with CubeSLAM adding 3D object landmarks defined by centre, size, and yaw.",
+        caption:
+          "Refined sketch — frames Iₜ through ORB-SLAM yield pose T_cw and a point-cloud map; CubeSLAM adds object landmarks as 3D cubes (centre, size, yaw) alongside sparse points.",
+        width: 1860,
+        height: 1000,
       },
       { type: "heading", text: "So what did I actually build?" },
       {

@@ -99,6 +99,25 @@ function renderBlock(block: ContentBlock, index: number) {
           ) : null}
         </figure>
       );
+    case "image":
+      return (
+        <figure key={index} className="space-y-2">
+          <div className="overflow-hidden rounded-xl border border-cyan-300/45 bg-[#f5f0e6]/95 shadow-[0_0_0_1px_rgba(34,220,255,0.14),0_0_24px_rgba(0,196,255,0.18)]">
+            <Image
+              src={block.src}
+              alt={block.alt}
+              width={block.width}
+              height={block.height}
+              className="block h-auto w-full"
+            />
+          </div>
+          {block.caption ? (
+            <figcaption className="text-xs text-cyan-200/70">
+              {block.caption}
+            </figcaption>
+          ) : null}
+        </figure>
+      );
     case "report": {
       const { paper, label } = block;
       const meta = [
