@@ -99,6 +99,76 @@ function renderBlock(block: ContentBlock, index: number) {
           ) : null}
         </figure>
       );
+    case "report": {
+      const { paper, label } = block;
+      const meta = [
+        paper.pages ? `${paper.pages} pages` : null,
+        paper.fileSize,
+      ]
+        .filter(Boolean)
+        .join(" · ");
+      return (
+        <aside
+          key={index}
+          className="relative my-2 overflow-hidden rounded-2xl border border-cyan-300/50 bg-[linear-gradient(145deg,rgba(0,30,38,0.85),rgba(0,8,18,0.95))] p-6 shadow-[0_0_0_1px_rgba(34,220,255,0.18),0_0_28px_rgba(0,196,255,0.22),inset_0_0_32px_rgba(0,149,255,0.10)]"
+        >
+          <div className="pointer-events-none absolute inset-0 opacity-30 [background-image:linear-gradient(rgba(88,251,255,0.10)_1px,transparent_1px),linear-gradient(90deg,rgba(88,251,255,0.08)_1px,transparent_1px)] [background-size:18px_18px]" />
+          <div className="relative z-10 flex flex-col gap-5 sm:flex-row">
+            <div
+              aria-hidden
+              className="flex h-14 w-14 shrink-0 items-center justify-center rounded-xl border border-cyan-300/55 bg-cyan-300/10 text-base font-semibold tracking-wide text-cyan-100 shadow-[0_0_14px_rgba(69,229,255,0.22)]"
+            >
+              PDF
+            </div>
+            <div className="flex flex-1 flex-col gap-3">
+              <div className="flex items-center gap-2">
+                <span className="h-2 w-2 rounded-full bg-cyan-300 shadow-[0_0_10px_rgba(57,243,255,0.9)]" />
+                <p className="text-[11px] tracking-[0.18em] text-cyan-200/80">
+                  {(label ?? "Full Report").toUpperCase()}
+                </p>
+                {meta ? (
+                  <span className="ml-auto text-[11px] tracking-[0.08em] text-cyan-200/60">
+                    {meta}
+                  </span>
+                ) : null}
+              </div>
+              <h3 className="text-lg font-semibold leading-snug text-cyan-50">
+                {paper.title}
+              </h3>
+              {paper.subtitle ? (
+                <p className="text-sm text-cyan-100/80">{paper.subtitle}</p>
+              ) : null}
+              {(paper.venue || paper.supervisor) && (
+                <p className="text-xs text-cyan-200/70">
+                  {paper.venue}
+                  {paper.venue && paper.supervisor ? " · " : ""}
+                  {paper.supervisor
+                    ? `Supervisor: ${paper.supervisor}`
+                    : ""}
+                </p>
+              )}
+              <div className="flex flex-wrap gap-3 pt-2">
+                <a
+                  href={paper.url}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex items-center gap-2 rounded-lg border border-cyan-300/55 bg-[linear-gradient(180deg,rgba(2,30,45,0.55),rgba(0,10,20,0.72))] px-4 py-2 text-sm font-medium text-cyan-100 shadow-[0_0_14px_rgba(69,229,255,0.12)] transition hover:-translate-y-0.5 hover:border-cyan-200 hover:bg-cyan-300/10 hover:text-cyan-50 hover:shadow-[0_0_18px_rgba(69,229,255,0.28)]"
+                >
+                  Read Paper &rarr;
+                </a>
+                <a
+                  href={paper.url}
+                  download
+                  className="inline-flex items-center gap-2 rounded-lg border border-cyan-300/35 bg-transparent px-4 py-2 text-sm font-medium text-cyan-100/85 transition hover:-translate-y-0.5 hover:border-cyan-200 hover:text-cyan-50"
+                >
+                  Download PDF &darr;
+                </a>
+              </div>
+            </div>
+          </div>
+        </aside>
+      );
+    }
     case "paragraph":
     default:
       return (
@@ -164,16 +234,28 @@ export default async function ArticlePage({
               ))}
             </div>
 
-            {project.githubUrl ? (
+            {project.githubUrl || project.paperUrl ? (
               <div className="flex flex-wrap gap-3 pt-1">
-                <a
-                  href={project.githubUrl}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="inline-flex items-center gap-2 rounded-lg border border-cyan-300/55 bg-[linear-gradient(180deg,rgba(2,30,45,0.55),rgba(0,10,20,0.72))] px-4 py-2 text-sm font-medium text-cyan-100 shadow-[0_0_14px_rgba(69,229,255,0.12)] transition hover:-translate-y-0.5 hover:border-cyan-200 hover:bg-cyan-300/10 hover:text-cyan-50 hover:shadow-[0_0_18px_rgba(69,229,255,0.28)]"
-                >
-                  GitHub &rarr;
-                </a>
+                {project.githubUrl ? (
+                  <a
+                    href={project.githubUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-flex items-center gap-2 rounded-lg border border-cyan-300/55 bg-[linear-gradient(180deg,rgba(2,30,45,0.55),rgba(0,10,20,0.72))] px-4 py-2 text-sm font-medium text-cyan-100 shadow-[0_0_14px_rgba(69,229,255,0.12)] transition hover:-translate-y-0.5 hover:border-cyan-200 hover:bg-cyan-300/10 hover:text-cyan-50 hover:shadow-[0_0_18px_rgba(69,229,255,0.28)]"
+                  >
+                    GitHub &rarr;
+                  </a>
+                ) : null}
+                {project.paperUrl ? (
+                  <a
+                    href={project.paperUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-flex items-center gap-2 rounded-lg border border-cyan-300/55 bg-[linear-gradient(180deg,rgba(2,30,45,0.55),rgba(0,10,20,0.72))] px-4 py-2 text-sm font-medium text-cyan-100 shadow-[0_0_14px_rgba(69,229,255,0.12)] transition hover:-translate-y-0.5 hover:border-cyan-200 hover:bg-cyan-300/10 hover:text-cyan-50 hover:shadow-[0_0_18px_rgba(69,229,255,0.28)]"
+                  >
+                    Read Paper &rarr;
+                  </a>
+                ) : null}
               </div>
             ) : null}
 

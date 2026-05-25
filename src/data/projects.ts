@@ -1,3 +1,13 @@
+export type PaperMeta = {
+  title: string;
+  subtitle?: string;
+  venue?: string;
+  supervisor?: string;
+  pages?: number;
+  fileSize?: string;
+  url: string;
+};
+
 export type ContentBlock =
   | {
       type: "paragraph";
@@ -6,7 +16,8 @@ export type ContentBlock =
     }
   | { type: "heading"; text: string }
   | { type: "list"; items: string[] }
-  | { type: "video"; src: string; poster?: string; caption?: string };
+  | { type: "video"; src: string; poster?: string; caption?: string }
+  | { type: "report"; label?: string; paper: PaperMeta };
 
 export type Project = {
   slug: string;
@@ -16,6 +27,7 @@ export type Project = {
   imageSrc: string;
   tags: string[];
   githubUrl?: string;
+  paperUrl?: string;
   content: ContentBlock[];
 };
 
@@ -38,6 +50,7 @@ export const projects: Project[] = [
       "Docker",
     ],
     githubUrl: "https://github.com/quocanhto85/Object-based-Visual-SLAM",
+    paperUrl: "https://pub-27f650efa3f2462eb4b1244f26fb5d0a.r2.dev/documents/towards_object_based_vslam.pdf",
     content: [
       {
         type: "paragraph",
@@ -99,6 +112,19 @@ export const projects: Project[] = [
             href: "https://researchers.adelaide.edu.au/profile/mehdi.hosseinzadeh",
           },
         ],
+      },
+      {
+        type: "report",
+        label: "Full Capstone Report",
+        paper: {
+          title: "Towards Object-Based Visual SLAM: A Revolution for Urban Tram",
+          subtitle: "COMP SCI 7205 — Artificial Intelligence & Machine Learning Research Project",
+          venue: "The University of Adelaide · Trimester 3, 2025",
+          supervisor: "Dr Mehdi Hosseinzadeh",
+          pages: 67,
+          fileSize: "6.5 MB",
+          url: "https://pub-27f650efa3f2462eb4b1244f26fb5d0a.r2.dev/documents/towards_object_based_vslam.pdf",
+        },
       },
     ],
   },
