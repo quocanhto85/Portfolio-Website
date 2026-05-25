@@ -1,7 +1,8 @@
 export type ContentBlock =
   | { type: "paragraph"; text: string }
   | { type: "heading"; text: string }
-  | { type: "list"; items: string[] };
+  | { type: "list"; items: string[] }
+  | { type: "video"; src: string; poster?: string; caption?: string };
 
 export type Project = {
   slug: string;
@@ -64,6 +65,11 @@ export const projects: Project[] = [
       {
         type: "paragraph",
         text: "There are 2 parts in the video. First one (00:00 - 00:24) shows the system running on KITTI odometry sequence 08 with ByteTrack doing its thing, you can see how objects maintain their IDs as the camera moves through the scene. Second part (00:24 - 00:59) is what I'm most excited about: real-world testing on Adelaide suburban streets. Same pipeline, completely different environment.",
+      },
+      {
+        type: "video",
+        src: "https://pub-27f650efa3f2462eb4b1244f26fb5d0a.r2.dev/videos/web_portfolio_content_slam_compressed.mp4",
+        caption: "Visual SLAM pipeline — KITTI sequence 08 (00:00–00:24) and Adelaide suburban streets (00:24–00:59).",
       },
       { type: "heading", text: "What's actually new here?" },
       {

@@ -46,6 +46,28 @@ function renderBlock(block: ContentBlock, index: number) {
           ))}
         </ul>
       );
+    case "video":
+      return (
+        <figure key={index} className="space-y-2">
+          <div className="overflow-hidden rounded-xl border border-cyan-300/45 bg-black/40 shadow-[0_0_0_1px_rgba(34,220,255,0.14),0_0_24px_rgba(0,196,255,0.18)]">
+            <video
+              controls
+              preload="metadata"
+              playsInline
+              poster={block.poster}
+              className="block h-auto w-full"
+            >
+              <source src={block.src} type="video/mp4" />
+              Your browser does not support the video tag.
+            </video>
+          </div>
+          {block.caption ? (
+            <figcaption className="text-xs text-cyan-200/70">
+              {block.caption}
+            </figcaption>
+          ) : null}
+        </figure>
+      );
     case "paragraph":
     default:
       return (
