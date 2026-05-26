@@ -272,7 +272,10 @@ async def _alfred_stream(
             gen_kwargs["level"] = "ERROR"
             gen_kwargs["status_message"] = status_message
         try:
-            generation.end(**gen_kwargs)
+            # Langfuse SDK v3+ split: attributes go through .update(), .end()
+            # only marks completion (it accepts end_time at most).
+            generation.update(**gen_kwargs)
+            generation.end()
         except Exception:  # pragma: no cover
             logger.exception("Langfuse generation.end failed")
 
@@ -314,7 +317,6 @@ class AlfredStreamView(AsyncAPIView):
 
     async def post(self, request, *args, **kwargs):
         body = request.data if isinstance(request.data, dict) else {}
-        print('body: ', body)
         message = (body.get("message") or "").strip()
         session_id = body.get("session_id")
 
@@ -344,8 +346,6 @@ class AlfredStreamView(AsyncAPIView):
                 "rate_limit_remaining": decision.remaining,
             },
         )
-        
-        print('request_span: ', request_span)
 
         if not decision.allowed:
             try:
@@ -354,11 +354,12 @@ class AlfredStreamView(AsyncAPIView):
                     input={"wait_seconds": decision.wait_seconds},
                     level="WARNING",
                 )
-                request_span.end(
+                request_span.update(
                     output={"status": "rate_limited"},
                     level="WARNING",
                     status_message="rate_limit_exceeded",
                 )
+                request_span.end()
                 lf_flush()
             except Exception:  # pragma: no cover
                 logger.exception("Langfuse error during rate-limit branch")
@@ -396,7 +397,8 @@ class AlfredStreamView(AsyncAPIView):
                     yield chunk
             finally:
                 try:
-                    request_span.end(output={"status": "ok"})
+                    request_span.update(output={"status": "ok"})
+                    request_span.end()
                 except Exception:  # pragma: no cover
                     pass
                 lf_flush()

@@ -44,7 +44,7 @@ services:
       NEXTAUTH_URL: http://localhost:3030
       NEXTAUTH_SECRET: dev-only-nextauth-secret-change-me
       SALT: dev-only-salt-change-me
-      ENCRYPTION_KEY: 0000000000000000000000000000000000000000000000000000000000000000
+      ENCRYPTION_KEY: "b1b299baef5e3cbebb6099e38df9461137fbb7b4a9b986f774665f63b1f536f2"
       TELEMETRY_ENABLED: "false"
 
   langfuse-worker:
@@ -74,7 +74,8 @@ services:
       LANGFUSE_S3_EVENT_UPLOAD_FORCE_PATH_STYLE: "true"
       LANGFUSE_S3_EVENT_UPLOAD_PREFIX: events/
       SALT: dev-only-salt-change-me
-      ENCRYPTION_KEY: 0000000000000000000000000000000000000000000000000000000000000000
+      # Must be exactly 64 hex chars; quote so YAML does not coerce to a number.
+      ENCRYPTION_KEY: "b1b299baef5e3cbebb6099e38df9461137fbb7b4a9b986f774665f63b1f536f2"
 
   langfuse-postgres:
     image: postgres:15-alpine

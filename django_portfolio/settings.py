@@ -1,7 +1,10 @@
 import os
 from pathlib import Path
 
+from dotenv import load_dotenv
+
 BASE_DIR = Path(__file__).resolve().parent.parent
+load_dotenv(BASE_DIR / ".env")
 
 SECRET_KEY = os.environ.get(
     "DJANGO_SECRET_KEY", "dev-only-secret-key-change-in-production"
@@ -16,6 +19,12 @@ INSTALLED_APPS = [
     "adrf",
     "llm_serving",
 ]
+
+# Local dev: run the app with uvicorn (ASGI), not `manage.py runserver` (WSGI):
+#     uvicorn django_portfolio.asgi:application --reload
+# WSGI can't natively iterate the async generator behind the Alfred SSE
+# endpoint, so it falls back to buffering the entire response — which kills
+# streaming and emits a noisy "must consume asynchronous iterators" warning.
 
 MIDDLEWARE = [
     "django.middleware.common.CommonMiddleware",
@@ -96,7 +105,8 @@ ALFRED_CORS_ORIGINS = [
     origin.strip()
     for origin in os.environ.get(
         "ALFRED_CORS_ORIGINS",
-        "http://localhost:3000,http://127.0.0.1:3000",
+        "http://localhost:3000,http://127.0.0.1:3000,"
+        "http://localhost:3001,http://127.0.0.1:3001",
     ).split(",")
     if origin.strip()
 ]

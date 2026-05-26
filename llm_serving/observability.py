@@ -11,8 +11,8 @@ Public API:
         - flush()
     Observation:
         - start_observation(name, as_type, model, input) -> Observation
-        - update(output=, usage_details=, level=, status_message=)
-        - end(output=, usage_details=, level=, status_message=)
+        - update(output=, usage_details=, level=, status_message=, metadata=)
+        - end()  # in SDK v3+ end() only marks completion; attributes go via update()
         - create_event(name, input=, level=, metadata=)
         - score_trace(name, value, comment=)
 """
