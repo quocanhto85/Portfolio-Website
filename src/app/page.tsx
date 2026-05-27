@@ -1,6 +1,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { projects } from "@/data/projects";
+import LabsPanel from "./components/LabsPanel";
 
 const links = [
   {
@@ -62,6 +63,8 @@ export default function Home() {
             </div>
           </nav>
         </header>
+
+        <LabsPanel />
 
         <div className="relative overflow-hidden rounded-xl border border-cyan-300/50 bg-[linear-gradient(145deg,rgba(0,30,38,0.7),rgba(0,8,18,0.9))] p-3 shadow-[0_0_0_1px_rgba(34,220,255,0.12),0_0_20px_rgba(0,196,255,0.12),inset_0_0_24px_rgba(0,149,255,0.08)]">
           <div className="pointer-events-none absolute inset-0 opacity-30 [background-image:linear-gradient(rgba(88,251,255,0.08)_1px,transparent_1px),linear-gradient(90deg,rgba(88,251,255,0.06)_1px,transparent_1px)] [background-size:18px_18px]" />
