@@ -16,7 +16,7 @@ export const labs: Lab[] = [
     slug: "pomodoro",
     title: "Pomodoro Engine",
     tagline:
-      "Time-boxed focus loops, session analytics, and an AI-augmented deep-work mode.",
+      "A Pomodoro-inspired focus timer with structured work/break cycles and progress tracking—built to boost productivity.",
     status: "operational",
     stack: ["Next.js", "Redux", "Socket.io", "MongoDB"],
     href: "https://pomodoro-green-chi.vercel.app/",

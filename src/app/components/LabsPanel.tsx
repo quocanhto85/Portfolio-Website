@@ -21,6 +21,8 @@ const STATUS_PILL: Record<LabStatus, string> = {
   provisioning: "text-cyan-200 border-cyan-200/40 bg-cyan-200/10",
 };
 
+const HIGHLIGHTED_STACKS = new Set(["Next.js", "Redux", "Socket.io", "MongoDB"]);
+
 function LabTile({ lab }: { lab: Lab }) {
   const disabled = lab.href == null;
   const isExternal = lab.href != null && /^https?:\/\//i.test(lab.href);
@@ -70,7 +72,12 @@ function LabTile({ lab }: { lab: Lab }) {
         {lab.stack.map((tech) => (
           <span
             key={tech}
-            className="rounded-full border border-cyan-300/30 bg-cyan-300/5 px-2 py-0.5 text-[10px] text-cyan-100/75"
+            className={[
+              "rounded-full border px-2 py-0.5 text-[10px] transition-colors",
+              HIGHLIGHTED_STACKS.has(tech)
+                ? "border-cyan-200/85 bg-cyan-200/25 font-semibold text-cyan-50 shadow-[0_0_10px_rgba(103,232,249,0.35)]"
+                : "border-cyan-300/30 bg-cyan-300/5 text-cyan-100/75",
+            ].join(" ")}
           >
             {tech}
           </span>
