@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
+import { Analytics } from "@vercel/analytics/next";
 import "./globals.css";
 import Alfred from "./components/Alfred";
 
@@ -33,6 +34,7 @@ export default function RootLayout({
         {/* Mounted in the root layout so Alfred — and his chat state —
             survives client-side navigation between Home and Resume. */}
         <Alfred />
+        <Analytics />
       </body>
     </html>
   );
