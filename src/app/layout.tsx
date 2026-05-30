@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { Analytics } from "@vercel/analytics/next";
+import { SpeedInsights } from "@vercel/speed-insights/next"
 import "./globals.css";
 import Alfred from "./components/Alfred";
 
@@ -35,6 +36,7 @@ export default function RootLayout({
             survives client-side navigation between Home and Resume. */}
         <Alfred />
         <Analytics />
+        <SpeedInsights />
       </body>
     </html>
   );
