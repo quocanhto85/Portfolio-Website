@@ -15,35 +15,35 @@ from datetime import date
 from pathlib import Path
 from typing import Optional
 
-_RESUME_PATH = (
+RESUME_PATH = (
     Path(__file__).resolve().parent.parent / "src" / "data" / "resume.json"
 )
 
-_MONTHS = {
+MONTHS = {
     "jan": 1, "feb": 2, "mar": 3, "apr": 4, "may": 5, "jun": 6,
     "jul": 7, "aug": 8, "sep": 9, "oct": 10, "nov": 11, "dec": 12,
 }
 
 
-def _parse_endpoint(token: str) -> Optional[date]:
+def parse_endpoint(token: str) -> Optional[date]:
     token = token.strip().lower()
     if not token or token == "present":
         return date.today()
     m = re.match(r"([a-z]{3})\s+(\d{4})$", token)
-    if m and m.group(1) in _MONTHS:
-        return date(int(m.group(2)), _MONTHS[m.group(1)], 1)
+    if m and m.group(1) in MONTHS:
+        return date(int(m.group(2)), MONTHS[m.group(1)], 1)
     m = re.match(r"(\d{4})$", token)
     if m:
         return date(int(m.group(1)), 1, 1)
     return None
 
 
-def _format_duration(dates: str) -> Optional[str]:
+def format_duration(dates: str) -> Optional[str]:
     """Return e.g. '2 years 10 months' for 'Mar 2021 - Dec 2023'."""
     parts = re.split(r"\s*[-–]\s*", dates, maxsplit=1)
     if len(parts) != 2:
         return None
-    start, end = _parse_endpoint(parts[0]), _parse_endpoint(parts[1])
+    start, end = parse_endpoint(parts[0]), parse_endpoint(parts[1])
     if not start or not end:
         return None
     months = (end.year - start.year) * 12 + (end.month - start.month) + 1
@@ -58,12 +58,12 @@ def _format_duration(dates: str) -> Optional[str]:
     return " ".join(bits) or "less than 1 month"
 
 
-def _load_resume() -> dict:
-    with _RESUME_PATH.open(encoding="utf-8") as fh:
+def load_resume() -> dict:
+    with RESUME_PATH.open(encoding="utf-8") as fh:
         return json.load(fh)
 
 
-def _build_resume_section(resume: dict) -> str:
+def build_resume_section(resume: dict) -> str:
     out: list[str] = []
     personal = resume.get("personal", {})
     out.append(f"Full name: {personal.get('name', '')}")
@@ -75,7 +75,7 @@ def _build_resume_section(resume: dict) -> str:
 
     out.append("\nProfessional experience (most recent first):")
     for job in resume.get("experience", []):
-        duration = _format_duration(job["dates"]) or "duration unknown"
+        duration = format_duration(job["dates"]) or "duration unknown"
         out.append(
             f"- {job['company']} ({job['location']}) — {job['role']}, "
             f"{job['dates']} ({duration})."
@@ -107,8 +107,8 @@ def _build_resume_section(resume: dict) -> str:
     return "\n".join(out)
 
 
-_RESUME = _load_resume()
-RESUME_CONTEXT = _build_resume_section(_RESUME)
+RESUME = load_resume()
+RESUME_CONTEXT = build_resume_section(RESUME)
 
 
 PORTFOLIO_CONTEXT = """

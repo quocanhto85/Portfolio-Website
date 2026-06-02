@@ -41,7 +41,7 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/alfred")
 
 
-class _EphemeralSession:
+class EphemeralSession:
     """In-memory stand-in for ChatSession when the DB isn't writable.
 
     Carries the bare minimum the streaming path needs: a stringifiable id and
@@ -58,22 +58,22 @@ class _EphemeralSession:
 
 # --- helpers ----------------------------------------------------------------
 
-def _client_ip(request: Request) -> str:
+def client_ip(request: Request) -> str:
     xff = request.headers.get("x-forwarded-for", "")
     if xff:
         return xff.split(",")[0].strip()
     return request.client.host if request.client else "0.0.0.0"
 
 
-def _hash_ip(ip: str) -> str:
+def hash_ip(ip: str) -> str:
     return hashlib.sha256(ip.encode("utf-8")).hexdigest()
 
 
-def _sse(payload: dict) -> bytes:
+def sse(payload: dict) -> bytes:
     return f"data: {json.dumps(payload, ensure_ascii=False)}\n\n".encode("utf-8")
 
 
-async def _get_or_create_session(session_id: Optional[str], ip_hash: str):
+async def get_or_create_session(session_id: Optional[str], ip_hash: str):
     """Return a ChatSession from the DB if reachable, else an EphemeralSession.
 
     Vercel's filesystem is read-only outside /tmp, so SQLite writes fail there.
@@ -92,11 +92,11 @@ async def _get_or_create_session(session_id: Optional[str], ip_hash: str):
             return obj
     except SQLAlchemyError as exc:
         logger.warning("DB unavailable; using ephemeral session (%s)", exc)
-        return _EphemeralSession(ip_hash)
+        return EphemeralSession(ip_hash)
 
 
-async def _save_user_message(session, content: str) -> None:
-    if isinstance(session, _EphemeralSession):
+async def save_user_message(session, content: str) -> None:
+    if isinstance(session, EphemeralSession):
         return
     try:
         async with AsyncSessionLocal() as db:
@@ -117,10 +117,10 @@ async def _save_user_message(session, content: str) -> None:
         logger.warning("Skipping user-message persistence: %s", exc)
 
 
-async def _save_assistant_message(
+async def save_assistant_message(
     session, content: str, tokens: int, latency_ms: int
 ) -> None:
-    if isinstance(session, _EphemeralSession):
+    if isinstance(session, EphemeralSession):
         return
     try:
         async with AsyncSessionLocal() as db:
@@ -145,7 +145,7 @@ async def _save_assistant_message(
 
 # --- streaming generator ----------------------------------------------------
 
-async def _alfred_stream(
+async def alfred_stream(
     user_message: str,
     session,
     parent_span,
@@ -204,7 +204,7 @@ async def _alfred_stream(
                         "Ollama returned %s: %s", resp.status_code, body[:200]
                     )
                     status_message = f"ollama_http_{resp.status_code}"
-                    yield _sse(
+                    yield sse(
                         {
                             "error": "Alfred is temporarily unavailable",
                             "done": True,
@@ -233,16 +233,16 @@ async def _alfred_stream(
                         first_token_at = time.perf_counter()
                     tokens += 1
                     collected.append(delta)
-                    yield _sse({"token": delta, "done": False})
+                    yield sse({"token": delta, "done": False})
     except (httpx.ConnectError, httpx.ReadTimeout, httpx.RemoteProtocolError) as exc:
         logger.warning("Ollama unreachable: %s", exc)
         status_message = f"ollama_unreachable: {type(exc).__name__}"
-        yield _sse({"error": "Alfred is temporarily unavailable", "done": True})
+        yield sse({"error": "Alfred is temporarily unavailable", "done": True})
         return
     except Exception as exc:  # pragma: no cover - defensive
         logger.exception("Unexpected error during Alfred stream")
         status_message = f"unexpected: {type(exc).__name__}"
-        yield _sse({"error": "Alfred is temporarily indisposed", "done": True})
+        yield sse({"error": "Alfred is temporarily indisposed", "done": True})
         return
     finally:
         latency_ms = int((time.perf_counter() - start) * 1000)
@@ -276,7 +276,7 @@ async def _alfred_stream(
             logger.exception("Langfuse generation.end failed")
 
         if full_text:
-            await _save_assistant_message(session, full_text, tokens, latency_ms)
+            await save_assistant_message(session, full_text, tokens, latency_ms)
 
         # Latency score so it's filterable in the Langfuse UI.
         try:
@@ -286,7 +286,7 @@ async def _alfred_stream(
         except Exception:  # pragma: no cover
             pass
 
-    yield _sse(
+    yield sse(
         {
             "token": "",
             "done": True,
@@ -320,7 +320,7 @@ async def chat(request: Request):
             {"error": "message too long (2000 char max)"}, status_code=400
         )
 
-    ip_hash = _hash_ip(_client_ip(request))
+    ip_hash = hash_ip(client_ip(request))
     limiter = SlidingWindowRateLimiter()
     decision = await limiter.check(ip_hash)
 
@@ -363,8 +363,8 @@ async def chat(request: Request):
             headers={"Retry-After": str(decision.wait_seconds)},
         )
 
-    session = await _get_or_create_session(session_id, ip_hash)
-    await _save_user_message(session, message)
+    session = await get_or_create_session(session_id, ip_hash)
+    await save_user_message(session, message)
 
     # Add the resolved session id once we have it so it groups in Langfuse.
     try:
@@ -377,9 +377,9 @@ async def chat(request: Request):
     except Exception:  # pragma: no cover
         pass
 
-    async def _wrapped_stream() -> AsyncIterator[bytes]:
+    async def wrapped_stream() -> AsyncIterator[bytes]:
         try:
-            async for chunk in _alfred_stream(message, session, request_span):
+            async for chunk in alfred_stream(message, session, request_span):
                 yield chunk
         finally:
             try:
@@ -390,7 +390,7 @@ async def chat(request: Request):
             lf_flush()
 
     return StreamingResponse(
-        _wrapped_stream(),
+        wrapped_stream(),
         media_type="text/event-stream",
         headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
     )

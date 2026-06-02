@@ -26,13 +26,13 @@ from .config import settings
 
 logger = logging.getLogger(__name__)
 
-_client: Any = None
-_initialized = False
+client: Any = None
+initialized = False
 
 
 # ---------------------------------------------------------------- no-op shim
-class _NoopObservation:
-    def start_observation(self, *args: Any, **kwargs: Any) -> "_NoopObservation":
+class NoopObservation:
+    def start_observation(self, *args: Any, **kwargs: Any) -> "NoopObservation":
         return self
 
     def update(self, *args: Any, **kwargs: Any) -> None:
@@ -48,11 +48,11 @@ class _NoopObservation:
         return None
 
 
-class _NoopClient:
+class NoopClient:
     enabled = False
 
-    def start_observation(self, *args: Any, **kwargs: Any) -> _NoopObservation:
-        return _NoopObservation()
+    def start_observation(self, *args: Any, **kwargs: Any) -> NoopObservation:
+        return NoopObservation()
 
     def flush(self) -> None:
         return None
@@ -61,11 +61,11 @@ class _NoopClient:
 # ---------------------------------------------------------------- bootstrap
 def get_client() -> Any:
     """Return a singleton Langfuse client, or a no-op when keys aren't set."""
-    global _client, _initialized
-    if _initialized:
-        return _client
+    global client, initialized
+    if initialized:
+        return client
 
-    _initialized = True
+    initialized = True
     public_key = settings.langfuse_public_key.strip()
     secret_key = settings.langfuse_secret_key.strip()
     host = settings.langfuse_host.strip()
@@ -74,13 +74,13 @@ def get_client() -> Any:
         logger.info(
             "Langfuse credentials not set — using no-op observability client."
         )
-        _client = _NoopClient()
-        return _client
+        client = NoopClient()
+        return client
 
     try:
         from langfuse import Langfuse  # type: ignore
 
-        _client = Langfuse(
+        client = Langfuse(
             public_key=public_key,
             secret_key=secret_key,
             host=host,
@@ -90,17 +90,17 @@ def get_client() -> Any:
         # The SDK reports init lazily; force a quick auth probe so misconfig
         # surfaces in logs once at startup rather than per request.
         try:
-            _client.auth_check()
+            client.auth_check()
         except Exception:  # pragma: no cover - best effort
             logger.exception("Langfuse auth_check failed; continuing anyway")
         logger.info("Langfuse client initialised against %s", host)
-        return _client
+        return client
     except Exception:  # pragma: no cover - SDK import / init failure
         logger.exception(
             "Failed to initialise Langfuse — falling back to no-op client"
         )
-        _client = _NoopClient()
-        return _client
+        client = NoopClient()
+        return client
 
 
 def flush() -> None:

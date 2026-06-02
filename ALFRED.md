@@ -117,7 +117,7 @@ feature.
 
 The wrapper [`observability.py`](backend/observability.py) lazily
 constructs the singleton client. If `LANGFUSE_PUBLIC_KEY` /
-`LANGFUSE_SECRET_KEY` are unset, it returns a `_NoopClient` so the request
+`LANGFUSE_SECRET_KEY` are unset, it returns a `NoopClient` so the request
 path keeps working in dev / CI / on Vercel preview branches without exposing
 keys.
 
@@ -184,9 +184,9 @@ with embeddings + pgvector / FAISS.
    - opens a Langfuse parent span `alfred.chat`,
    - asks the limiter — if denied, attaches a `rate_limited` event + ends
      the span at WARNING level, then returns `429` with `wait_seconds`,
-   - otherwise `_get_or_create_session` + `_save_user_message` (async SQLAlchemy),
-   - returns a `StreamingResponse` whose body is `_alfred_stream(...)`.
-5. `_alfred_stream`:
+   - otherwise `get_or_create_session` + `save_user_message` (async SQLAlchemy),
+   - returns a `StreamingResponse` whose body is `alfred_stream(...)`.
+5. `alfred_stream`:
    - opens a child `generation` observation on the parent span with
      `model=ALFRED_MODEL` and the full input messages,
    - opens an `httpx.AsyncClient` POST to Ollama with `stream=True`,
@@ -197,7 +197,7 @@ with embeddings + pgvector / FAISS.
    - in `finally`: closes the generation with the accumulated output, token
      `usage_details`, and TTFT/latency metadata; attaches a `latency_seconds`
      score on the trace.
-6. The wrapping `_wrapped_stream` ends the parent span and calls
+6. The wrapping `wrapped_stream` ends the parent span and calls
    `langfuse.flush()` once the response is fully drained.
 7. The browser reads the body, splits on `\n\n`, and appends each token to
    the current assistant bubble; on `done` it locks the bubble and unlocks

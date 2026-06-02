@@ -25,14 +25,14 @@ try:  # redis is a declared dependency; guard import defensively all the same
 except Exception:  # pragma: no cover
     aioredis = None  # type: ignore
 
-_redis = (
+redis = (
     aioredis.from_url(settings.redis_url, decode_responses=True)
     if settings.redis_url and aioredis is not None
     else None
 )
 
 # Process-local fallback store: {ip_hash: [timestamp, ...]}.
-_MEMORY: dict[str, list[float]] = {}
+MEMORY: dict[str, list[float]] = {}
 
 
 @dataclass(frozen=True)
@@ -53,10 +53,10 @@ class SlidingWindowRateLimiter:
         self.max_requests = max_requests or settings.alfred_rate_limit_max
         self.window = window_seconds or settings.alfred_rate_limit_window
 
-    def _key(self, ip_hash: str) -> str:
+    def key(self, ip_hash: str) -> str:
         return self.KEY_TEMPLATE.format(ip_hash=ip_hash)
 
-    def _decide(self, timestamps: list[float], now: float) -> tuple[RateLimitDecision, list[float]]:
+    def decide(self, timestamps: list[float], now: float) -> tuple[RateLimitDecision, list[float]]:
         """Pure decision over already-pruned timestamps; returns the list to persist."""
         if len(timestamps) >= self.max_requests:
             oldest = timestamps[0]
@@ -80,19 +80,19 @@ class SlidingWindowRateLimiter:
         now = time.time()
         cutoff = now - self.window
 
-        if _redis is not None:
-            key = self._key(ip_hash)
-            raw = await _redis.get(key)
+        if redis is not None:
+            key = self.key(ip_hash)
+            raw = await redis.get(key)
             stored = json.loads(raw) if raw else []
             timestamps = [ts for ts in stored if ts > cutoff]
-            decision, to_save = self._decide(timestamps, now)
-            await _redis.set(key, json.dumps(to_save), ex=self.window)
+            decision, to_save = self.decide(timestamps, now)
+            await redis.set(key, json.dumps(to_save), ex=self.window)
             return decision
 
         # In-process path. No awaits between read and write, so the event loop
         # can't interleave another coroutine mid-update.
-        stored = _MEMORY.get(ip_hash, [])
+        stored = MEMORY.get(ip_hash, [])
         timestamps = [ts for ts in stored if ts > cutoff]
-        decision, to_save = self._decide(timestamps, now)
-        _MEMORY[ip_hash] = to_save
+        decision, to_save = self.decide(timestamps, now)
+        MEMORY[ip_hash] = to_save
         return decision
