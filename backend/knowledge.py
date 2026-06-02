@@ -114,8 +114,8 @@ RESUME_CONTEXT = _build_resume_section(_RESUME)
 PORTFOLIO_CONTEXT = """
 About the Batcave portfolio
 - Site name: Quoc Anh's Batcave (Batman-themed personal portfolio).
-- Stack: Next.js 16 App Router (React 19) on the frontend, Django + ADRF
-  (async DRF) on the backend, deployed on Vercel.
+- Stack: Next.js 16 App Router (React 19) on the frontend, FastAPI (async
+  Python) on the backend, deployed on Vercel.
 - Live features: contact console (email, LinkedIn, GitHub, resume), project
   cards with tags, a search field, and Alfred — the AI butler chat.
 - A full resume page is available at /resume; Alfred is given that resume
@@ -123,11 +123,11 @@ About the Batcave portfolio
 
 Alfred himself
 - Powered by Ollama running a small open-weights model (default llama3.2:3b).
-- Streams tokens via Server-Sent Events from a Django ADRF AsyncAPIView.
+- Streams tokens via Server-Sent Events from a FastAPI async endpoint.
 - Rate-limited with a sliding-window limiter (10 requests / 60 seconds per
-  IP hash) backed by Django's cache.
-- Conversation logs live in SQLite via the Django ORM; metrics surface on
-  /api/alfred/metrics/ for Prometheus scraping.
+  IP hash) backed by an in-process store (or Redis when configured).
+- Conversation logs live in SQLite via SQLAlchemy; lightweight usage stats
+  surface on /api/alfred/stats/.
 """
 
 

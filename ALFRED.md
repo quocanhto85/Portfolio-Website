@@ -4,68 +4,50 @@ Alfred is the AI butler embedded in the Batcave portfolio. This document
 describes the full system: every component, the technology choices behind
 each one, and how they interact end-to-end.
 
-> Goal: a small but production-shaped LLM serving feature that demonstrates
+> Goal: a production-shaped LLM serving feature that demonstrates
 > async serving, rate limiting, persistence, observability, and a streaming
-> UI — all integrated into a single Django + Next.js project, no extra
+> UI — all integrated into a single FastAPI + Next.js project, no extra
 > services.
+
+> **Backup version.** The earlier Next.js + Django (ADRF) implementation is
+> preserved on the `nextjs-django` branch. `main` is the FastAPI version
+> documented here.
 
 ---
 
 ## 1. Architecture at a glance
 
 ```
-┌──────────────────────────────────────────────────────────────────────┐
-│  Browser (Next.js 16, React 19, Tailwind)                            │
-│                                                                      │
-│   src/app/components/Alfred.tsx                                      │
-│     • Floating bat-icon launcher                                     │
-│     • Slide-up chat panel (380×520)                                  │
-│     • fetch() + ReadableStream → SSE frame parser                    │
-│     • Per-token append, blinking cursor, typing dots                 │
-│     • Rate-limit countdown UI                                        │
-└────────────────────────┬─────────────────────────────────────────────┘
-                         │ POST /api/alfred/chat/   (text/event-stream)
-                         ▼
-┌──────────────────────────────────────────────────────────────────────┐
-│  Django ASGI app  (api/index.py → django_portfolio.asgi)             │
-│                                                                      │
-│   ┌────────────────────────────────────────────────────────────┐     │
-│   │  llm_serving/views.py                                      │     │
-│   │   AlfredStreamView (adrf.views.APIView, async)             │     │
-│   │     1. extract + sha256 IP                                 │     │
-│   │     2. SlidingWindowRateLimiter.check(ip_hash)             │     │
-│   │     3. get_or_create ChatSession (sync_to_async ORM)       │     │
-│   │     4. save user message                                   │     │
-│   │     5. open httpx.AsyncClient → Ollama /v1/chat/...        │     │
-│   │     6. async-iterate Ollama SSE → re-emit as our SSE       │     │
-│   │     7. on completion: persist assistant msg + close trace  │     │
-│   │   AlfredStatsView (async ORM aggregate)                    │     │
-│   └────────────────────────────────────────────────────────────┘     │
-│                                                                      │
-│   ┌──────────────────────┐   ┌────────────────────────────────┐      │
-│   │ rate_limiter.py      │   │ observability.py               │      │
-│   │ Django cache-backed  │   │ Langfuse client (no-op if unset)│     │
-│   │ (LocMem or Redis)    │   │ trace + generation + score     │      │
-│   └──────────────────────┘   └────────────────────────────────┘      │
-│                                                                      │
-│   ┌────────────────────────────┐                                     │
-│   │ models.py: ChatSession,    │                                     │
-│   │ ChatMessage  (SQLite)      │                                     │
-│   └────────────────────────────┘                                     │
-└────────────────────────┬─────────────────────────────────────────────┘
-                         │
-                         ▼
-┌──────────────────────────────────────────────────────────────────────┐
-│  Ollama (OpenAI-compatible) — http://localhost:11434                 │
-│  Model: ALFRED_MODEL (default llama3.2:3b)                           │
-└──────────────────────────────────────────────────────────────────────┘
+Browser — Next.js 16 / React 19 / Tailwind
+  src/app/components/Alfred.tsx
+    • Floating bat-icon launcher → slide-up chat panel (380×520)
+    • fetch() + ReadableStream → SSE frame parser
+    • Per-token append, blinking cursor, rate-limit countdown
+        │
+        │  POST /api/alfred/chat/   (text/event-stream)
+        ▼
+FastAPI ASGI app — api/index.py → backend.main:app
+  backend/routers/alfred.py · chat()  (native async endpoint)
+    1. extract + sha256 client IP
+    2. SlidingWindowRateLimiter.check(ip_hash)
+    3. get-or-create ChatSession        (SQLAlchemy async)
+    4. save user message
+    5. httpx.AsyncClient → Ollama /v1/chat/completions (stream=True)
+    6. async-iterate Ollama SSE → re-emit as our SSE frames
+    7. on completion: persist assistant message + close Langfuse trace
+  backend/routers/alfred.py · stats()  (async SQLAlchemy aggregate)
 
-           ┌─────────────────────────────────────┐
-           │ Langfuse (Cloud or local Docker)    │  traces, generations,
-           │  • Trace per request                │  token usage, scores,
-           │  • Generation per Ollama call       │  filtered by session,
-           │  • Latency score on trace           │  model, environment
-           └─────────────────────────────────────┘
+  supporting modules
+    backend/rate_limiter.py    in-process dict, or Redis when REDIS_URL is set
+    backend/observability.py   Langfuse client (no-op if keys unset)
+    backend/models.py          ChatSession, ChatMessage (SQLite via SQLAlchemy)
+        │
+        ▼
+Ollama (OpenAI-compatible) — http://localhost:11434
+  Model: ALFRED_MODEL (default llama3.2:3b)
+
+Langfuse (Cloud or local Docker) — traces, generations, token usage, scores
+  • Trace per request   • Generation per Ollama call   • Latency score on trace
 ```
 
 ---
@@ -84,36 +66,39 @@ each one, and how they interact end-to-end.
 | **Rate-limit ticker via `setInterval`** | One interval that decrements until zero, then nulls the state — single source of truth, no cascading effects. |
 | **`crypto.randomUUID()` w/ fallback** | Stable session id per visitor without a backend round-trip. |
 
-### 2.2 Backend HTTP layer — `llm_serving/views.py`
+### 2.2 Backend HTTP layer — `backend/routers/alfred.py`
 
-- **ADRF (`adrf.views.APIView`)** — thin wrapper over DRF that lets `post()`
-  be `async def`. Lets us `await` the database, the rate limiter, and the
-  Ollama client without spawning threads per request.
-- **`StreamingHttpResponse(async_generator, content_type="text/event-stream")`**
-  — Django 5 serializes the async generator chunk-by-chunk under ASGI.
+- **Native async FastAPI endpoint** — `chat()` is a plain `async def` handler.
+  FastAPI runs it on the event loop, so we `await` the database, the rate
+  limiter, and the Ollama client without spawning threads per request.
+- **`StreamingResponse(async_generator, media_type="text/event-stream")`**
+  — Starlette serializes the async generator chunk-by-chunk under ASGI.
   Headers `Cache-Control: no-cache` and `X-Accel-Buffering: no` defeat
   Nginx/Vercel response buffering. `Connection` is _not_ set because it's a
   hop-by-hop header and is the server's responsibility.
-- **CORS** — small inline helper allows just the configured Next.js origins.
-  No `django-cors-headers` dependency since the surface is one endpoint.
-- **`sync_to_async`** — Django 5 ORM has limited native async; we wrap the
-  read/write helpers so they don't block the event loop. The `.acreate` /
-  `.aget` shortcuts are used where they're already async.
+- **CORS** — handled globally by Starlette's `CORSMiddleware`, scoped to the
+  configured Next.js origins (`ALFRED_CORS_ORIGINS`). It also answers the
+  `OPTIONS` preflight automatically, so the endpoints stay free of CORS code.
+- **SQLAlchemy async sessions** — each DB helper opens a short-lived
+  `AsyncSession` and `await`s it, so persistence never blocks the event loop.
+  The routes register both `/chat/` and `/chat` (and likewise for `/stats`)
+  so a POST never trips a trailing-slash redirect.
 
-### 2.3 Sliding-window rate limiter — `llm_serving/rate_limiter.py`
+### 2.3 Sliding-window rate limiter — `backend/rate_limiter.py`
 
 - Storage shape: a list of float epoch timestamps under
-  `rl:alfred:{sha256(ip)}` in the Django cache.
+  `rl:alfred:{sha256(ip)}`.
 - On each call: prune timestamps older than `now - window`, accept iff
   `len < max`, then append `now`.
-- Backed by **Django's cache framework** so the same code runs against
-  `LocMemCache` (default for dev) or `RedisCache` (production / multi-worker).
-  An in-memory dict would silently break when more than one Gunicorn /
-  Vercel worker is in play.
+- **Pluggable store** — an in-process dict by default (dev / single instance /
+  serverless), or Redis when `REDIS_URL` is set (shared across instances). The
+  same algorithm runs on both because we only read/write a JSON list per key.
+  A bare in-memory dict would silently break across more than one uvicorn /
+  Vercel worker, which is exactly why Redis is the production path.
 - IPs are **always hashed** before they touch storage or metrics — raw IPs
   are never logged, satisfying basic privacy hygiene.
 
-### 2.4 Observability — `llm_serving/observability.py` + Langfuse
+### 2.4 Observability — `backend/observability.py` + Langfuse
 
 We log **LLM-shaped** telemetry rather than generic ops metrics. The
 Prometheus-style "requests / latency / saturation" tells you _whether the
@@ -125,12 +110,12 @@ feature.
 
 | Object | Fields | Source |
 | --- | --- | --- |
-| Trace (parent span `alfred.chat`) | session id, ip-hash prefix, rate-limit headroom | view |
+| Trace (parent span `alfred.chat`) | session id, ip-hash prefix, rate-limit headroom | endpoint |
 | Generation (`ollama.chat`) | model id, full input messages, streamed output, `usage_details` (input/output tokens), TTFT ms, total latency ms, error level/status | streaming generator |
-| Event `rate_limited` | wait seconds, WARNING level | view (denied branch) |
+| Event `rate_limited` | wait seconds, WARNING level | endpoint (denied branch) |
 | Score `latency_seconds` | numeric, attached to the trace | post-stream `finally` |
 
-The wrapper [`observability.py`](llm_serving/observability.py) lazily
+The wrapper [`observability.py`](backend/observability.py) lazily
 constructs the singleton client. If `LANGFUSE_PUBLIC_KEY` /
 `LANGFUSE_SECRET_KEY` are unset, it returns a `_NoopClient` so the request
 path keeps working in dev / CI / on Vercel preview branches without exposing
@@ -151,36 +136,39 @@ keys.
   Vercel serverless functions can ship traces without a long-lived
   scraper.
 
-### 2.5 Persistence — `llm_serving/models.py`
+### 2.5 Persistence — `backend/models.py`
 
 ```
 ChatSession(id=UUID, ip_hash, created_at, total_messages)
    └── ChatMessage(role, content, tokens_generated, latency_ms, created_at)
 ```
 
-- UUID primary key on session so it's safe to surface in the SSE response.
+- String UUID primary key on session so it's safe to surface in the SSE
+  response and portable across SQLite and Postgres.
 - IP is hashed once and stored on the session, never on the message.
-- `tokens_generated` / `latency_ms` only populated for assistant rows so
-  `AlfredStatsView` can compute averages with a single ORM `Avg` aggregate.
+- `tokens_generated` / `latency_ms` only populated for assistant rows so the
+  stats endpoint can compute averages with a single `func.avg` aggregate.
 
-### 2.6 Stats endpoint — `AlfredStatsView`
+### 2.6 Stats endpoint — `stats()`
 
 `GET /api/alfred/stats/` returns
 
 ```json
-{ "total_sessions": int, "total_messages": int, "avg_latency_ms": float|null }
+{ "total_sessions": int, "total_messages": int, "avg_latency_ms": float|null, "persistence": "db"|"ephemeral" }
 ```
 
-Computed by a single async ORM aggregate; not particularly large, but
-demonstrates async ORM + JSON response wrapped in CORS headers identical to
-the streaming endpoint.
+Computed by a single async SQLAlchemy aggregate. `persistence` reports whether
+the DB was reachable (`db`) or the request fell back to ephemeral mode
+(`ephemeral`). CORS is handled by the same shared `CORSMiddleware` as the
+streaming endpoint.
 
-### 2.7 Knowledge — `llm_serving/knowledge.py`
+### 2.7 Knowledge — `backend/knowledge.py`
 
-The system prompt is a static string. Static is the right call here because
-the whole portfolio fits comfortably under the context window of a 3B model;
-swapping in retrieval would be premature. If the corpus grows, replace with
-embeddings + pgvector / FAISS.
+The system prompt is a static string built from `src/data/resume.json` (the
+same source the resume page renders from). Static is the right call here
+because the whole portfolio fits comfortably under the context window of a 3B
+model; swapping in retrieval would be premature. If the corpus grows, replace
+with embeddings + pgvector / FAISS.
 
 ---
 
@@ -190,14 +178,14 @@ embeddings + pgvector / FAISS.
 2. The component appends a user bubble + a pending assistant bubble, then
    `fetch`s `POST /api/alfred/chat/` with `{message, session_id}`.
 3. Next.js dev rewrites (or Vercel's `vercel.json` rewrite in prod) forward
-   to Django ASGI.
-4. `AlfredStreamView.post`:
+   to the FastAPI ASGI app.
+4. The `chat()` endpoint:
    - extracts the IP from `X-Forwarded-For`, sha256s it,
    - opens a Langfuse parent span `alfred.chat`,
    - asks the limiter — if denied, attaches a `rate_limited` event + ends
      the span at WARNING level, then returns `429` with `wait_seconds`,
-   - otherwise `_get_or_create_session` + `_save_user_message` (async ORM),
-   - returns a `StreamingHttpResponse` whose body is `_alfred_stream(...)`.
+   - otherwise `_get_or_create_session` + `_save_user_message` (async SQLAlchemy),
+   - returns a `StreamingResponse` whose body is `_alfred_stream(...)`.
 5. `_alfred_stream`:
    - opens a child `generation` observation on the parent span with
      `model=ALFRED_MODEL` and the full input messages,
@@ -224,21 +212,23 @@ embeddings + pgvector / FAISS.
 | Rate limit hit | HTTP `429` JSON `{error, wait_seconds, retry_after}` + `Retry-After` header; parent span ends at WARNING with a `rate_limited` event. |
 | Network drop mid-stream | Browser `AbortError` → terminal in-character message; generation + parent span still close in `finally`. |
 | Empty / oversized message | HTTP `400` before any Langfuse work happens. |
+| DB unwritable (read-only FS) | Falls back to an ephemeral session; the stream is unaffected and Langfuse stays the durable log. |
 | Langfuse unreachable | Wrapper falls back to no-op silently — the user-facing request is unaffected. |
 
 ---
 
 ## 4. Production considerations
 
-- **ASGI on Vercel.** `api/index.py` exposes both ASGI (`app`) and WSGI
-  (`application`). Vercel's Python runtime auto-detects ASGI from the
-  signature, which is required for `StreamingHttpResponse` to flush
-  incrementally to the client.
-- **Cache backend.** Set `REDIS_URL` in production so the sliding-window
-  state is shared across workers. Without it, `LocMemCache` is per-worker
-  and the limit is effectively N × `ALFRED_RATE_LIMIT_MAX`.
+- **ASGI on Vercel.** `api/index.py` exposes the FastAPI ASGI `app`. Vercel's
+  Python runtime auto-detects ASGI, which is required for `StreamingResponse`
+  to flush incrementally to the client.
+- **Rate-limit store.** Set `REDIS_URL` in production so the sliding-window
+  state is shared across instances. Without it, the in-process dict is
+  per-instance and the limit is effectively N × `ALFRED_RATE_LIMIT_MAX`.
 - **Database.** SQLite is fine for a single Vercel function; for multi-worker
-  durability switch `DATABASES` to managed Postgres.
+  durability switch `DATABASE_URL` to managed Postgres
+  (`postgresql+asyncpg://...`). On Vercel the bundled SQLite file is read-only,
+  so writes degrade to ephemeral automatically.
 - **Buffering.** `X-Accel-Buffering: no` defeats Nginx; on Vercel, the
   Python runtime streams unbuffered when the response is `text/event-stream`.
 - **Privacy.** IPs are hashed before storage. Only the first 8 chars of the
@@ -255,27 +245,26 @@ embeddings + pgvector / FAISS.
 ## 5. Files added or changed
 
 ```
-api/index.py                                        # ASGI + WSGI
-django_portfolio/asgi.py                            # ASGI module
-django_portfolio/settings.py                        # apps, cache, Alfred config
-portfolio_api/urls.py                               # mount /api/alfred/
-llm_serving/                                        # new app
+api/index.py                      # Vercel ASGI entry → backend.main:app
+backend/
   __init__.py
-  apps.py
-  knowledge.py                                      # system prompt
-  models.py                                         # ChatSession, ChatMessage
-  rate_limiter.py                                   # SlidingWindowRateLimiter
-  observability.py                                  # Langfuse client + no-op shim
-  urls.py                                           # /chat /stats
-  views.py                                          # AlfredStreamView, AlfredStatsView
-  migrations/0001_initial.py
-src/app/components/Alfred.tsx                       # client component
-src/app/page.tsx                                    # mounts <Alfred />
-next.config.ts                                      # dev rewrites + slash handling
-docker-compose.langfuse.yml                         # local Langfuse self-host
-requirements.txt                                    # adrf, drf, langfuse, redis, httpx
-README.md                                           # quickstart + Alfred section
-ALFRED.md                                           # this document
+  config.py                       # pydantic-settings (env config)
+  database.py                     # SQLAlchemy async engine + session + init_db
+  models.py                       # ChatSession, ChatMessage
+  rate_limiter.py                 # SlidingWindowRateLimiter (in-proc / Redis)
+  observability.py                # Langfuse client + no-op shim
+  knowledge.py                    # system prompt (from src/data/resume.json)
+  main.py                         # FastAPI app: CORS, lifespan, routers
+  routers/
+    portfolio.py                  # /api/health, /api/projects
+    alfred.py                     # /api/alfred/chat/, /api/alfred/stats/
+src/app/components/Alfred.tsx     # client component
+src/app/page.tsx                  # mounts <Alfred />
+next.config.ts                    # dev rewrites + slash handling
+docker-compose.langfuse.yml       # local Langfuse self-host
+requirements.txt                  # fastapi, uvicorn, sqlalchemy, langfuse, httpx
+README.md                         # quickstart + Alfred section
+ALFRED.md                         # this document
 ```
 
 ---
@@ -283,14 +272,16 @@ ALFRED.md                                           # this document
 ## 6. Smoke tests
 
 ```bash
-# Health (existing)
+# Start the backend first:  uvicorn backend.main:app --reload --port 8000
+
+# Health
 curl http://localhost:8000/api/health
 
-# Stats (ORM aggregate)
+# Stats (SQLAlchemy aggregate)
 curl http://localhost:8000/api/alfred/stats/
 
-# Streaming chat (without Ol`lama → graceful fallback frame; without Langfuse keys
-# → no traces, view still works)
+# Streaming chat (without Ollama → graceful fallback frame; without Langfuse
+# keys → no traces, endpoint still works)
 curl -N -X POST http://localhost:8000/api/alfred/chat/ \
   -H "Content-Type: application/json" \
   -d '{"message":"Hello Alfred"}'

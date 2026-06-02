@@ -1,11 +1,10 @@
 """Vercel Python entry point.
 
-Exposes both ``app`` (ASGI, used by Alfred for native async streaming) and
-``application`` (WSGI fallback). Vercel detects ASGI when the callable has
-the ASGI signature, so ``app = ASGI`` is what production runs.
+Exposes the FastAPI ASGI ``app``. Vercel's Python runtime detects the ASGI
+callable and serves it directly, which gives Alfred native async streaming.
 
-For local dev we use ``manage.py runserver`` which serves ASGI for async views
-when ``ASGI_APPLICATION`` is set.
+For local dev, run the same app with uvicorn:
+    uvicorn backend.main:app --reload --port 8000
 """
 
 import os
@@ -16,10 +15,6 @@ ROOT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if ROOT_DIR not in sys.path:
     sys.path.insert(0, ROOT_DIR)
 
-os.environ.setdefault("DJANGO_SETTINGS_MODULE", "django_portfolio.settings")
+from backend.main import app  # noqa: E402
 
-from django.core.asgi import get_asgi_application  # noqa: E402
-from django.core.wsgi import get_wsgi_application  # noqa: E402
-
-app = get_asgi_application()
-application = get_wsgi_application()
+__all__ = ["app"]

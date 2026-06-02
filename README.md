@@ -1,14 +1,19 @@
-# Batcave Portfolio (Next.js + Django)
+# Batcave Portfolio (Next.js + FastAPI)
 
-Batman-inspired dark portfolio frontend with a Django backend, designed to deploy on free Vercel.
+Batman-inspired dark portfolio frontend with a FastAPI backend, designed to deploy on free Vercel.
 
 ## Stack
 
 - Frontend: Next.js 16 App Router + Tailwind CSS
-- Backend: Django + ADRF (async DRF) — entry in `api/index.py` (ASGI + WSGI)
+- Backend: FastAPI (async Python) — entry in `api/index.py` (ASGI), run with uvicorn
 - LLM: Ollama (OpenAI-compatible) running locally
 - Observability: **Langfuse** for LLM traces, generations, and token-usage scoring
 - Hosting: Vercel (single project)
+
+> **Backup version (Next.js + Django).** The previous Django + ADRF backend is
+> preserved verbatim on the [`nextjs-django`](https://github.com/quocanhto85/Portfolio-Website/tree/nextjs-django)
+> branch and remains fully deployable — `git checkout nextjs-django`, or point
+> Vercel's Production Branch at it, to run that version instead.
 
 ## Local development
 
@@ -20,7 +25,8 @@ npm run dev
 ```
 
 Open [http://localhost:3000](http://localhost:3000). The dev server proxies
-`/api/alfred/*`, `/api/health`, and `/api/projects` to Django on `:8000`.
+`/api/alfred/*`, `/api/health`, and `/api/projects` to the FastAPI backend on
+`:8000`.
 
 ### 2) Backend
 
@@ -28,15 +34,16 @@ Open [http://localhost:3000](http://localhost:3000). The dev server proxies
 python3 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
-python manage.py migrate
-python manage.py runserver 8000
+uvicorn backend.main:app --reload --port 8000
 ```
 
+The SQLite schema is created automatically on startup — no migration step.
 Try:
 
 - `http://127.0.0.1:8000/api/health`
 - `http://127.0.0.1:8000/api/projects`
 - `http://127.0.0.1:8000/api/alfred/stats/`
+- `http://127.0.0.1:8000/docs` — auto-generated OpenAPI docs (FastAPI)
 
 ## 🦇 Alfred — AI Butler
 
@@ -48,11 +55,11 @@ tokens live via Server-Sent Events.
 
 | Concern | Implementation |
 | --- | --- |
-| HTTP layer | Django + ADRF `AsyncAPIView` (`POST /api/alfred/chat/`) |
+| HTTP layer | FastAPI async endpoint (`POST /api/alfred/chat/`) |
 | LLM | Ollama OpenAI-compatible API at `http://localhost:11434` |
-| Streaming | `StreamingHttpResponse` + SSE (`text/event-stream`) |
-| Rate limiting | Sliding-window limiter, Django cache backend (LocMem or Redis) |
-| Persistence | Django ORM — `ChatSession`, `ChatMessage` (SQLite by default) |
+| Streaming | `StreamingResponse` + SSE (`text/event-stream`) |
+| Rate limiting | Sliding-window limiter, in-process store (or Redis when `REDIS_URL` is set) |
+| Persistence | SQLAlchemy async — `ChatSession`, `ChatMessage` (SQLite by default) |
 | Observability | Langfuse — one trace per request, one `generation` per Ollama call (model, input, output, tokens, latency) |
 | Frontend | Floating panel in `src/app/components/Alfred.tsx`, fetch + ReadableStream |
 
@@ -83,7 +90,7 @@ trace, so you can spot abuse patterns in the UI without a separate dashboard.
 export LANGFUSE_HOST=https://cloud.langfuse.com
 export LANGFUSE_PUBLIC_KEY=pk-lf-...
 export LANGFUSE_SECRET_KEY=sk-lf-...
-python manage.py runserver 8000
+uvicorn backend.main:app --reload --port 8000
 ```
 
 **Or run Langfuse locally** in Docker:
@@ -101,7 +108,7 @@ exactly the same, you just don't get traces.
 
 ## Configuration
 
-Environment variables (see `django_portfolio/settings.py`):
+Environment variables (see `backend/config.py`):
 
 | Var | Default | Purpose |
 | --- | --- | --- |
@@ -111,7 +118,8 @@ Environment variables (see `django_portfolio/settings.py`):
 | `ALFRED_RATE_LIMIT_WINDOW` | `60` | Window size (seconds) |
 | `ALFRED_REQUEST_TIMEOUT` | `60` | Ollama request timeout |
 | `ALFRED_CORS_ORIGINS` | `localhost:3000,127.0.0.1:3000` | Comma-separated allow list |
-| `REDIS_URL` | _unset_ | If set, swaps LocMem cache for Redis |
+| `DATABASE_URL` | `sqlite+aiosqlite:///./db.sqlite3` | SQLAlchemy async DB URL |
+| `REDIS_URL` | _unset_ | If set, swaps the in-process limiter store for Redis |
 | `LANGFUSE_HOST` | `https://cloud.langfuse.com` | Langfuse endpoint |
 | `LANGFUSE_PUBLIC_KEY` | _unset_ | Langfuse public key (disables tracing if unset) |
 | `LANGFUSE_SECRET_KEY` | _unset_ | Langfuse secret key |
@@ -119,9 +127,9 @@ Environment variables (see `django_portfolio/settings.py`):
 
 ## Deploy to Vercel
 
-`vercel.json` routes `/api/*` to `api/index.py`, which exposes both ASGI
-(`app`) and WSGI (`application`) callables. Vercel detects the ASGI signature
-to support Alfred's streaming response. Rewrites in `next.config.ts` are dev
-only — production traffic is shaped entirely by `vercel.json`.
+`vercel.json` routes `/api/*` to `api/index.py`, which exposes the FastAPI
+ASGI `app`. Vercel's Python runtime detects the ASGI callable to support
+Alfred's streaming response. Rewrites in `next.config.ts` are dev only —
+production traffic is shaped entirely by `vercel.json`.
 
 For deeper architectural notes, see [`ALFRED.md`](./ALFRED.md).

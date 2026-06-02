@@ -20,8 +20,9 @@ Public API:
 from __future__ import annotations
 
 import logging
-import os
 from typing import Any, Optional
+
+from .config import settings
 
 logger = logging.getLogger(__name__)
 
@@ -65,9 +66,9 @@ def get_client() -> Any:
         return _client
 
     _initialized = True
-    public_key = os.environ.get("LANGFUSE_PUBLIC_KEY", "").strip()
-    secret_key = os.environ.get("LANGFUSE_SECRET_KEY", "").strip()
-    host = os.environ.get("LANGFUSE_HOST", "https://cloud.langfuse.com").strip()
+    public_key = settings.langfuse_public_key.strip()
+    secret_key = settings.langfuse_secret_key.strip()
+    host = settings.langfuse_host.strip()
 
     if not public_key or not secret_key:
         logger.info(
@@ -83,8 +84,8 @@ def get_client() -> Any:
             public_key=public_key,
             secret_key=secret_key,
             host=host,
-            release=os.environ.get("LANGFUSE_RELEASE"),
-            environment=os.environ.get("LANGFUSE_ENVIRONMENT", "local"),
+            release=settings.langfuse_release or None,
+            environment=settings.langfuse_environment or "local",
         )
         # The SDK reports init lazily; force a quick auth probe so misconfig
         # surfaces in logs once at startup rather than per request.
