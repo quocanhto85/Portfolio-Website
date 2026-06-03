@@ -90,15 +90,21 @@ export type Resume = {
  * Where to reach the content API.
  *  - dev: hit FastAPI directly (uvicorn on :8000); avoids relying on the Next
  *    rewrite for server-side fetches, which only proxies browser requests.
- *  - prod (Vercel): same-deployment URL; Vercel routes /api/* to the Python
- *    function via vercel.json. Server-side fetch needs an absolute URL.
+ *  - prod (Vercel): the public production domain. Vercel routes /api/* to the
+ *    Python function via vercel.json; server-side fetch needs an absolute URL.
  */
 function apiBase(): string {
   if (process.env.CONTENT_API_BASE_URL) return process.env.CONTENT_API_BASE_URL;
   if (process.env.NODE_ENV === "development") {
     return process.env.BACKEND_DEV_URL ?? "http://127.0.0.1:8000";
   }
-  if (process.env.VERCEL_URL) return `https://${process.env.VERCEL_URL}`;
+  // Must target the canonical production domain, NOT VERCEL_URL. VERCEL_URL is
+  // the per-deployment hostname, which Deployment Protection answers with a 401
+  // — so a server-side self-fetch to it throws and the page 500s.
+  // VERCEL_PROJECT_PRODUCTION_URL is the unprotected production domain.
+  const host =
+    process.env.VERCEL_PROJECT_PRODUCTION_URL || process.env.VERCEL_URL;
+  if (host) return `https://${host}`;
   return "";
 }
 
