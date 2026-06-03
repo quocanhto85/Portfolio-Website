@@ -2,15 +2,9 @@ import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
-import {
-  getProjectBySlug,
-  projects,
-  type ContentBlock,
-} from "@/data/projects";
+import { getProjectBySlug, type ContentBlock } from "@/lib/content";
 
-export function generateStaticParams() {
-  return projects.map((p) => ({ slug: p.slug }));
-}
+export const dynamic = "force-dynamic";
 
 export async function generateMetadata({
   params,
@@ -18,7 +12,7 @@ export async function generateMetadata({
   params: Promise<{ slug: string }>;
 }): Promise<Metadata> {
   const { slug } = await params;
-  const project = getProjectBySlug(slug);
+  const project = await getProjectBySlug(slug);
   if (!project) return { title: "Article Not Found" };
   return {
     title: `${project.title} | Batcave Portfolio`,
@@ -204,7 +198,7 @@ export default async function ArticlePage({
   params: Promise<{ slug: string }>;
 }) {
   const { slug } = await params;
-  const project = getProjectBySlug(slug);
+  const project = await getProjectBySlug(slug);
   if (!project) notFound();
 
   return (

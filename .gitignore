@@ -34,6 +34,7 @@ yarn-error.log*
 .env*
 .venv/
 db.sqlite3
+.lancedb/
 __pycache__/
 *.pyc
 
@@ -46,3 +47,5 @@ recovery-codes-vercel.txt
 next-env.d.ts
 
 /.claude
+
+/.agents

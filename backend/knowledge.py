@@ -1,23 +1,25 @@
 """Static knowledge that Alfred is given as system context.
 
-Resume data is read from ``src/data/resume.json`` — the same source of truth
-the Next.js resume page renders from — so updates in one place flow to both
-the UI and Alfred's system prompt. Durations between role dates are
-pre-computed here because small open-weights models tend to slip on date
-arithmetic.
+Resume data is read from the content database (via ``content_service``) — the
+same single source of truth the Next.js resume page renders from — so updates
+in one place flow to both the UI and Alfred's system prompt. Durations between
+role dates are pre-computed here because small open-weights models tend to slip
+on date arithmetic.
 """
 
 from __future__ import annotations
 
-import json
+import logging
 import re
 from datetime import date
-from pathlib import Path
 from typing import Optional
 
-RESUME_PATH = (
-    Path(__file__).resolve().parent.parent / "src" / "data" / "resume.json"
-)
+from sqlalchemy.exc import SQLAlchemyError
+
+from .content_service import get_resume_data
+from .database import AsyncSessionLocal
+
+logger = logging.getLogger(__name__)
 
 MONTHS = {
     "jan": 1, "feb": 2, "mar": 3, "apr": 4, "may": 5, "jun": 6,
@@ -56,11 +58,6 @@ def format_duration(dates: str) -> Optional[str]:
     if rem:
         bits.append(f"{rem} month{'s' if rem != 1 else ''}")
     return " ".join(bits) or "less than 1 month"
-
-
-def load_resume() -> dict:
-    with RESUME_PATH.open(encoding="utf-8") as fh:
-        return json.load(fh)
 
 
 def build_resume_section(resume: dict) -> str:
@@ -107,10 +104,6 @@ def build_resume_section(resume: dict) -> str:
     return "\n".join(out)
 
 
-RESUME = load_resume()
-RESUME_CONTEXT = build_resume_section(RESUME)
-
-
 PORTFOLIO_CONTEXT = """
 About the Batcave portfolio
 - Site name: Quoc Anh's Batcave (Batman-themed personal portfolio).
@@ -131,7 +124,7 @@ Alfred himself
 """
 
 
-SYSTEM_PROMPT = (
+SYSTEM_PROMPT_PREAMBLE = (
     "You are Alfred, the loyal and eloquent AI butler of Quoc Anh's Batcave "
     "portfolio. You speak in formal British English with dry wit. Answer "
     "visitor questions about Quoc Anh (his background, experience, skills, "
@@ -139,9 +132,41 @@ SYSTEM_PROMPT = (
     "question cannot be answered from this material, say so plainly rather "
     "than inventing details. When asked about role tenure or dates, prefer "
     "the pre-computed durations listed beside each role. Keep answers "
-    "concise (under 150 words) and stay in character.\n\n"
-    "=== PORTFOLIO ===\n"
-    f"{PORTFOLIO_CONTEXT}\n"
-    "=== RESUME ===\n"
-    f"{RESUME_CONTEXT}\n"
+    "concise (under 150 words) and stay in character."
 )
+
+
+async def build_system_prompt(retrieved_context: str = "") -> str:
+    """Assemble Alfred's system prompt, reading the resume from the content DB.
+
+    The resume is the same single source of truth the ``/resume`` page renders
+    from and is always included (it's small and central). ``retrieved_context``
+    is the optional RAG augmentation for a specific question — the most relevant
+    chunks (article sections, etc.) appended as extra reference material.
+
+    If the resume isn't seeded yet (or the DB is unreachable), Alfred still gets
+    the portfolio context and stays in character — simply without resume
+    specifics — rather than failing the request.
+    """
+    resume_context = ""
+    try:
+        async with AsyncSessionLocal() as db:
+            resume = await get_resume_data(db)
+        if resume is not None:
+            resume_context = build_resume_section(resume)
+    except SQLAlchemyError as exc:
+        logger.warning("Resume unavailable for Alfred's system prompt: %s", exc)
+
+    prompt = (
+        f"{SYSTEM_PROMPT_PREAMBLE}\n\n"
+        "=== PORTFOLIO ===\n"
+        f"{PORTFOLIO_CONTEXT}\n"
+    )
+    if resume_context:
+        prompt += "=== RESUME ===\n" f"{resume_context}\n"
+    if retrieved_context:
+        prompt += (
+            "=== RETRIEVED CONTEXT (most relevant to the question) ===\n"
+            f"{retrieved_context}\n"
+        )
+    return prompt

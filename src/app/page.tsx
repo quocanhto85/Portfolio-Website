@@ -1,7 +1,9 @@
 import Image from "next/image";
 import Link from "next/link";
-import { projects } from "@/data/projects";
+import { getProjects } from "@/lib/content";
 import LabsPanel from "./components/LabsPanel";
+
+export const dynamic = "force-dynamic";
 
 const links = [
   {
@@ -28,7 +30,8 @@ const links = [
   },
 ];
 
-export default function Home() {
+export default async function Home() {
+  const projects = await getProjects();
   return (
     <main className="min-h-screen bg-batcave px-6 py-10 text-slate-100">
       <section className="mx-auto flex w-full max-w-6xl flex-col gap-6">

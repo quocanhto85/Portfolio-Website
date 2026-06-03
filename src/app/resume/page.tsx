@@ -1,9 +1,7 @@
 import Link from "next/link";
-import resumeData from "@/data/resume.json";
+import { getResume } from "@/lib/content";
 
-const { personal, skills, education, certifications, experience, projects } =
-  resumeData;
-const contactLinks = personal.contact;
+export const dynamic = "force-dynamic";
 
 function Section({
   title,
@@ -33,7 +31,10 @@ function BulletList({ items }: Readonly<{ items: string[] }>) {
   );
 }
 
-export default function ResumePage() {
+export default async function ResumePage() {
+  const { personal, skills, education, certifications, experience, projects } =
+    await getResume();
+  const contactLinks = personal.contact;
   return (
     <main className="relative min-h-screen overflow-hidden bg-slate-900 px-6 py-6 text-slate-100 [background:radial-gradient(circle_at_0%_0%,rgba(118,67,227,0.20),transparent_38%),radial-gradient(circle_at_100%_0%,rgba(30,196,255,0.18),transparent_34%),linear-gradient(180deg,#0a0f1f_0%,#06070d_58%,#04050a_100%)] sm:py-10">
       <div className="pointer-events-none absolute inset-0 opacity-20 [background-image:linear-gradient(rgba(88,251,255,0.08)_1px,transparent_1px),linear-gradient(90deg,rgba(88,251,255,0.06)_1px,transparent_1px)] [background-size:22px_22px]" />

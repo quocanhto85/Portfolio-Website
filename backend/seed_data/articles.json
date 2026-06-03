@@ -1,0 +1,118 @@
+[
+  {
+    "slug": "visual-slam-autonomous-tram",
+    "title": "Futuristic Autonomous Tram Technology in Smart Cities",
+    "date": "2025-12-07",
+    "description": "Object-based Visual SLAM system developed for addressing the complexity introduced by dynamic obstacles (e.g., vehicles, pedestrians) along with infrastructure components (e.g., traffic lights, stations).",
+    "imageSrc": "/images/tram.png",
+    "tags": [
+      "AI",
+      "Computer Vision",
+      "Robotics",
+      "Visual SLAM",
+      "ORB-SLAM3",
+      "ByteTrack",
+      "CubeSLAM",
+      "Docker"
+    ],
+    "githubUrl": "https://github.com/quocanhto85/Object-based-Visual-SLAM",
+    "paperUrl": "https://pub-27f650efa3f2462eb4b1244f26fb5d0a.r2.dev/documents/towards_object_based_vslam.pdf",
+    "content": [
+      {
+        "type": "paragraph",
+        "text": "Finally wrapped up my Master's capstone project, and honestly, it's been quite a ride. For the past several months, I've been deep in the world of Visual SLAM from zero, trying to figure out how we can mimic autonomous vehicles actually work in busy urban environments. It turned out to be a lot tougher than I expected."
+      },
+      {
+        "type": "paragraph",
+        "text": "The core question I wanted to tackle was pretty straightforward. How do we help a vehicle \"see\" and understand dynamic urban scenes, cars cutting across, cyclists appearing out of nowhere, pedestrians doing unpredictable things, while simultaneously building a map and knowing where it is?"
+      },
+      { "type": "heading", "text": "Where the architecture started" },
+      {
+        "type": "paragraph",
+        "text": "Before any code, the whole system lived on grid paper. These two sketches capture how the idea evolved from a rough ORB-SLAM plus detector sketch into a concrete plan for fusing sparse point landmarks with 3D object cubes in one map."
+      },
+      {
+        "type": "image",
+        "src": "/images/SLAM_Integration_2.png",
+        "alt": "Early handwritten sketch: ORB-SLAM mapping and localisation stages, an object detector producing 2D bounding boxes, and axis-aligned 3D boxes in world coordinates.",
+        "caption": "First pass — ORB-SLAM for mapping and localisation, an object detector for {b₁, b₂, …, bₙ}, and lifting detections into axis-aligned 3D bounding boxes.",
+        "width": 1000,
+        "height": 1179
+      },
+      {
+        "type": "image",
+        "src": "/images/SLAM_Integration_1.png",
+        "alt": "Handwritten architecture diagram: video frames through ORB-SLAM to camera pose T_cw and a point-cloud map, with CubeSLAM adding 3D object landmarks defined by centre, size, and yaw.",
+        "caption": "Refined sketch — frames Iₜ through ORB-SLAM yield pose T_cw and a point-cloud map; CubeSLAM adds object landmarks as 3D cubes (centre, size, yaw) alongside sparse points.",
+        "width": 1860,
+        "height": 1000
+      },
+      { "type": "heading", "text": "So what did I actually build?" },
+      {
+        "type": "paragraph",
+        "text": "I put together a full pipeline that combines:"
+      },
+      {
+        "type": "list",
+        "items": [
+          "✅ YOLOv8 for detecting objects in real-time",
+          "✅ ByteTrack to keep consistent IDs on those objects across frames (no more treating the same car as 10 different cars)",
+          "✅ CubeSLAM-style 3D bounding box reconstruction",
+          "✅ All of this integrated into ORB-SLAM3 running in monocular mode"
+        ]
+      },
+      {
+        "type": "paragraph",
+        "text": "The whole thing runs on my M1 MacBook Pro with 16GB RAM inside a Docker container. Yes, I had to containerise everything because the Pangolin visualisation library often fails on macOS."
+      },
+      { "type": "heading", "text": "What's in the video?" },
+      {
+        "type": "paragraph",
+        "text": "There are 2 parts in the video. First one (00:00 - 00:24) shows the system running on KITTI odometry sequence 08 with ByteTrack doing its thing, you can see how objects maintain their IDs as the camera moves through the scene. Second part (00:24 - 00:59) is what I'm most excited about: real-world testing on Adelaide suburban streets. Same pipeline, completely different environment."
+      },
+      {
+        "type": "video",
+        "src": "https://pub-27f650efa3f2462eb4b1244f26fb5d0a.r2.dev/videos/web_portfolio_content_slam_compressed.mp4",
+        "caption": "Visual SLAM pipeline — KITTI sequence 08 (00:00–00:24) and Adelaide suburban streets (00:24–00:59)."
+      },
+      { "type": "heading", "text": "What's actually new here?" },
+      {
+        "type": "paragraph",
+        "text": "Most existing work either focuses purely on feature-based or direct approaches, and typically evaluates on a single dataset. I trained on BDD100K and tested on KITTI to see how well the model generalises across different driving scenarios. That cross-dataset evaluation combined with persistent 3D object tracking is something I haven't seen done quite this way before."
+      },
+      { "type": "heading", "text": "But let's be real about the limitations." },
+      {
+        "type": "paragraph",
+        "text": "Monocular vision is hard. My APE sits around 61-64 metres mean error, which tells you everything about the inherent scale ambiguity problem. And the detector still makes some FPs, in the Adelaide portion, there's a moment where traffic signs were misclassified as cyclists. These edge cases remind me there's still plenty of work ahead."
+      },
+      { "type": "heading", "text": "What's next?" },
+      {
+        "type": "paragraph",
+        "text": "For future work, I'm looking at incorporating semantic segmentation and possibly RANSAC filtering to clean things up. Maybe even some reinforcement learning down the line. I also want to leverage SOTA object detector model such as YOLO26 (released in September 2025) to increase the robustness of the system."
+      },
+      {
+        "type": "paragraph",
+        "text": "None of this would have been possible without the guidance of my supervisor, Dr Mehdi Hosseinzadeh. I deeply appreciate him for his indispensable guidance and support throughout this research journey.",
+        "links": [
+          {
+            "text": "Dr Mehdi Hosseinzadeh",
+            "href": "https://researchers.adelaide.edu.au/profile/mehdi.hosseinzadeh"
+          }
+        ]
+      },
+      {
+        "type": "report",
+        "label": "Full Capstone Report",
+        "paper": {
+          "title": "Towards Object-Based Visual SLAM: A Revolution for Urban Tram",
+          "subtitle": "COMP SCI 7205 — Artificial Intelligence & Machine Learning Research Project",
+          "venue": "The University of Adelaide · Trimester 3, 2025",
+          "supervisor": "Dr Mehdi Hosseinzadeh",
+          "pages": 31,
+          "fileSize": "6.5 MB",
+          "url": "https://pub-27f650efa3f2462eb4b1244f26fb5d0a.r2.dev/documents/towards_object_based_vslam.pdf"
+        }
+      }
+    ]
+  }
+]

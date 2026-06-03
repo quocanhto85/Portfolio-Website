@@ -31,9 +31,10 @@ from sqlalchemy.exc import SQLAlchemyError
 
 from ..config import settings
 from ..database import AsyncSessionLocal
-from ..knowledge import SYSTEM_PROMPT
+from ..knowledge import build_system_prompt
 from ..models import ChatMessage, ChatSession
 from ..observability import flush as lf_flush, get_client as get_lf_client
+from ..rag.retrieval import format_context, retrieve
 from ..rate_limiter import SlidingWindowRateLimiter
 
 logger = logging.getLogger(__name__)
@@ -149,6 +150,7 @@ async def alfred_stream(
     user_message: str,
     session,
     parent_span,
+    system_prompt: str,
 ) -> AsyncIterator[bytes]:
     """Open an Ollama streaming completion and re-emit it as SSE.
 
@@ -165,7 +167,7 @@ async def alfred_stream(
     status_message: Optional[str] = None
 
     messages = [
-        {"role": "system", "content": SYSTEM_PROMPT},
+        {"role": "system", "content": system_prompt},
         {"role": "user", "content": user_message},
     ]
 
@@ -255,7 +257,7 @@ async def alfred_stream(
         gen_kwargs = {
             "output": full_text or None,
             "usage_details": {
-                "input": len(SYSTEM_PROMPT.split()) + len(user_message.split()),
+                "input": len(system_prompt.split()) + len(user_message.split()),
                 "output": tokens,
             },
             "metadata": {
@@ -366,12 +368,18 @@ async def chat(request: Request):
     session = await get_or_create_session(session_id, ip_hash)
     await save_user_message(session, message)
 
+    # RAG: fetch the chunks most relevant to this question (resume + articles).
+    # Degrades to [] when retrieval is disabled/unconfigured, so chat still runs.
+    retrieved = await retrieve(message)
+    system_prompt = await build_system_prompt(format_context(retrieved))
+
     # Add the resolved session id once we have it so it groups in Langfuse.
     try:
         request_span.update(
             metadata={
                 "session_id": str(session.id),
                 "ip_hash_prefix": ip_hash[:8],
+                "rag_chunks": len(retrieved),
             }
         )
     except Exception:  # pragma: no cover
@@ -379,7 +387,9 @@ async def chat(request: Request):
 
     async def wrapped_stream() -> AsyncIterator[bytes]:
         try:
-            async for chunk in alfred_stream(message, session, request_span):
+            async for chunk in alfred_stream(
+                message, session, request_span, system_prompt
+            ):
                 yield chunk
         finally:
             try:

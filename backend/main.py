@@ -16,7 +16,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from .config import settings
 from .database import init_db
-from .routers import alfred, portfolio
+from .routers import alfred, content, portfolio
 
 logging.basicConfig(level=logging.INFO)
 
@@ -38,4 +38,5 @@ app.add_middleware(
 )
 
 app.include_router(portfolio.router)
+app.include_router(content.router)
 app.include_router(alfred.router)
