@@ -26,7 +26,7 @@ from .config import settings
 logger = logging.getLogger(__name__)
 
 
-def _normalize_db_url(raw: str) -> tuple[URL, dict]:
+def normalize_db_url(raw: str) -> tuple[URL, dict]:
     """Make a pasted Neon connection string work with our async stack.
 
     Neon hands out libpq-style URLs (``postgresql://…?sslmode=require``) that the
@@ -61,8 +61,8 @@ def _normalize_db_url(raw: str) -> tuple[URL, dict]:
     return url, connect_args
 
 
-_db_url, _connect_args = _normalize_db_url(settings.database_url)
-engine = create_async_engine(_db_url, future=True, connect_args=_connect_args)
+db_url, connect_args = normalize_db_url(settings.database_url)
+engine = create_async_engine(db_url, future=True, connect_args=connect_args)
 
 AsyncSessionLocal = async_sessionmaker(
     engine, class_=AsyncSession, expire_on_commit=False

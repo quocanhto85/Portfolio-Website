@@ -34,7 +34,6 @@ yarn-error.log*
 .env*
 .venv/
 db.sqlite3
-.lancedb/
 __pycache__/
 *.pyc
 

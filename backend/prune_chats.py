@@ -1,6 +1,6 @@
 """Prune old chat logs so the one unbounded table can't fill the database.
 
-Content tables (resume + articles) and the LanceDB vector store are bounded by
+Content tables (resume + articles) and the Milvus vector store are bounded by
 how much you publish. The chat log (``chat_sessions`` + ``chat_messages``) is the
 only table that grows with traffic, so this CLI trims it to a retention window.
 
@@ -35,13 +35,13 @@ from .models import ChatMessage, ChatSession
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("prune_chats")
 
-_DURATION_RE = re.compile(r"^\s*(\d+)\s*([wdh])\s*$", re.IGNORECASE)
-_UNIT_SECONDS = {"w": 7 * 86400, "d": 86400, "h": 3600}
+DURATION_RE = re.compile(r"^\s*(\d+)\s*([wdh])\s*$", re.IGNORECASE)
+UNIT_SECONDS = {"w": 7 * 86400, "d": 86400, "h": 3600}
 
 
 def parse_duration(raw: str) -> timedelta:
     """Parse a retention window like ``90d``, ``12w`` or ``48h`` into a timedelta."""
-    match = _DURATION_RE.match(raw)
+    match = DURATION_RE.match(raw)
     if not match:
         raise argparse.ArgumentTypeError(
             f"invalid duration {raw!r}; use forms like 48h, 90d, 12w"
@@ -49,7 +49,7 @@ def parse_duration(raw: str) -> timedelta:
     value = int(match.group(1))
     if value <= 0:
         raise argparse.ArgumentTypeError("duration must be a positive number")
-    return timedelta(seconds=value * _UNIT_SECONDS[match.group(2).lower()])
+    return timedelta(seconds=value * UNIT_SECONDS[match.group(2).lower()])
 
 
 async def prune(older_than: timedelta, *, dry_run: bool = False) -> dict[str, int]:

@@ -1,19 +1,19 @@
-"""Rebuild Alfred's LanceDB vector table from the content database.
+"""Rebuild Alfred's Milvus vector collection from the content database.
 
     python -m backend.rag.ingest
 
 Reads the same DB that serves the UI (resume rows + article blocks), chunks
 it, embeds the chunks with the configured provider, and overwrites the vector
-table. Idempotent — a full rebuild each run, mirroring ``seed_content.py``.
+collection. Idempotent — a full rebuild each run, mirroring ``seed_content.py``.
 
-Requires ``EMBEDDING_API_KEY``. LanceDB itself needs no key: a local directory
-in dev, or R2/S3 in prod via ``LANCEDB_URI``.
+Requires ``EMBEDDING_API_KEY``. Milvus runs as a server: a local Docker
+standalone in dev, or a hosted/Zilliz endpoint in prod via ``MILVUS_URI``
+(plus ``MILVUS_TOKEN`` when the endpoint requires auth).
 """
 
 from __future__ import annotations
 
 import asyncio
-import json
 import logging
 
 from ..database import AsyncSessionLocal
@@ -51,7 +51,7 @@ async def ingest() -> dict:
             "source_id": c.source_id,
             "title": c.title,
             "text": c.text,
-            "metadata": json.dumps(c.metadata, ensure_ascii=False),
+            "metadata": c.metadata,
             "vector": vector,
         }
         for c, vector in zip(chunks, vectors)

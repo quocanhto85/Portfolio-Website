@@ -22,7 +22,7 @@ from ..content_models import Article
 from ..content_service import get_resume_data
 from ..knowledge import format_duration
 
-_MEDIA_TYPES = {"video", "image"}
+MEDIA_TYPES = {"video", "image"}
 
 
 @dataclass
@@ -204,7 +204,7 @@ def chunk_article(article: dict[str, Any]) -> list[Chunk]:
             state["heading"] = block.get("text", "")
         elif btype == "list":
             state["buf"].extend(f"- {item}" for item in block.get("items", []))
-        elif btype in _MEDIA_TYPES:
+        elif btype in MEDIA_TYPES:
             caption = block.get("caption") or block.get("alt") or ""
             if caption:
                 state["buf"].append(caption)
