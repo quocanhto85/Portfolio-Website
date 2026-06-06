@@ -8,5 +8,5 @@ asyncpg>=0.29
 redis>=5.0
 httpx>=0.27
 langfuse>=2.50
-lancedb>=0.13
+pymilvus>=2.4,<3
 pyarrow>=14

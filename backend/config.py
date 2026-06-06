@@ -71,18 +71,17 @@ class Settings(BaseSettings):
     embedding_query_task: str = "retrieval.query"
     embedding_passage_task: str = "retrieval.passage"
 
-    # --- RAG: vector store (self-hosted LanceDB — NO API key) -----------------
-    # Dev: a local directory. Prod: an S3-compatible bucket, e.g. Cloudflare R2
-    #   LANCEDB_URI=s3://my-bucket/alfred
-    #   LANCEDB_S3_ENDPOINT=https://<account>.r2.cloudflarestorage.com
-    # plus the access key/secret below. Creds are passed to LanceDB as
-    # storage_options; they are only consulted when the URI is s3://.
-    lancedb_uri: str = "./.lancedb"
-    lancedb_table: str = "alfred_chunks"
-    lancedb_s3_endpoint: str = ""
-    lancedb_s3_region: str = "auto"
-    lancedb_aws_access_key_id: str = ""
-    lancedb_aws_secret_access_key: str = ""
+    # --- RAG: vector store (self-hosted Milvus) -------------------------------
+    # Dev: a local Milvus standalone server (Docker), browsable with the Attu
+    # console. Prod: a network-reachable Milvus you host, or Zilliz Cloud:
+    #   MILVUS_URI=http://localhost:19530          # local Docker (default)
+    #   MILVUS_URI=https://<id>.api.<region>.zillizcloud.com
+    #   MILVUS_TOKEN=<api-key or user:password>    # blank for local Docker
+    # The same client serves both; only these values change between environments.
+    milvus_uri: str = "http://localhost:19530"
+    milvus_token: str = ""
+    milvus_collection: str = "alfred_chunks"
+    milvus_db_name: str = ""
 
     # --- RAG: retrieval -------------------------------------------------------
     # RAG augments Alfred's always-on resume with the most relevant chunks for a

@@ -5,7 +5,7 @@ These tables replace the old static ``src/data/resume.json`` and
 
 * Flow 1 (display): ``routers/content.py`` serves these rows to the Next.js UI.
 * Flow 2 (RAG): ``backend/rag/ingest.py`` reads these rows, chunks + embeds
-  them, and writes vectors to LanceDB.
+  them, and writes vectors to Milvus.
 
 The running application never imports the ``src/data`` files again; those
 survive only as one-time seed input under ``backend/seed_data`` (see

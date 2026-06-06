@@ -45,7 +45,7 @@ class Embedder:
         self.query_task = query_task
         self.passage_task = passage_task
 
-    async def _embed_batch(
+    async def embed_batch(
         self, client: httpx.AsyncClient, inputs: list[str], task: str
     ) -> list[list[float]]:
         payload: dict = {"model": self.model, "input": inputs}
@@ -75,22 +75,22 @@ class Embedder:
                 )
         return vectors
 
-    async def _embed(self, texts: list[str], task: str) -> list[list[float]]:
+    async def embed(self, texts: list[str], task: str) -> list[list[float]]:
         if not texts:
             return []
         out: list[list[float]] = []
         async with httpx.AsyncClient(timeout=self.timeout) as client:
             for i in range(0, len(texts), self.batch_size):
                 out.extend(
-                    await self._embed_batch(client, texts[i : i + self.batch_size], task)
+                    await self.embed_batch(client, texts[i : i + self.batch_size], task)
                 )
         return out
 
     async def embed_documents(self, texts: list[str]) -> list[list[float]]:
-        return await self._embed(texts, self.passage_task)
+        return await self.embed(texts, self.passage_task)
 
     async def embed_query(self, text: str) -> list[float]:
-        return (await self._embed([text], self.query_task))[0]
+        return (await self.embed([text], self.query_task))[0]
 
 
 def get_embedder() -> Embedder:

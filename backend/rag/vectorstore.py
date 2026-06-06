@@ -1,62 +1,37 @@
-"""Thin LanceDB wrapper for Alfred's single chunk table.
+"""Thin Milvus wrapper for Alfred's single chunk collection.
 
-Self-hosted LanceDB has no API key: in dev it reads/writes a local directory,
-in prod an S3-compatible bucket (Cloudflare R2). Remote credentials are passed
-as ``storage_options`` and consulted only when ``LANCEDB_URI`` is an ``s3://``
-URI, so local dev needs no configuration.
+Self-hosted Milvus exposes a gRPC/REST endpoint, so the same client serves
+every environment: in dev a local standalone server (Docker, browsable with the
+Attu console), in prod a network-reachable Milvus you host or Zilliz Cloud. The
+endpoint and optional token come from ``MILVUS_URI`` / ``MILVUS_TOKEN`` — a blank
+token suits a local Docker server, which has auth disabled.
 
-The content corpus is tiny, so the table is rebuilt wholesale on each ingest
-and searched exhaustively (no ANN index — exact and simplest for small N).
+The content corpus is tiny, so the collection is rebuilt wholesale on each
+ingest and searched with a cosine metric over an ``AUTOINDEX`` (exact for small
+N). Scalar fields are stored as typed columns and metadata as a native JSON
+field, so the whole chunk is legible in the Attu console — the reason we host
+the vectors here rather than in opaque object storage.
 """
 
 from __future__ import annotations
 
-import json
 import logging
 from typing import Any, Optional
 
-import lancedb
-import pyarrow as pa
+from pymilvus import DataType, MilvusClient
 
 from ..config import settings
 
 logger = logging.getLogger(__name__)
 
-
-def _storage_options() -> Optional[dict[str, str]]:
-    if not settings.lancedb_uri.startswith("s3://"):
-        return None
-    opts: dict[str, str] = {
-        "aws_region": settings.lancedb_s3_region,
-        # R2 (and most S3-compat stores) use path-style addressing.
-        "aws_virtual_hosted_style_request": "false",
-    }
-    if settings.lancedb_s3_endpoint:
-        opts["aws_endpoint"] = settings.lancedb_s3_endpoint
-    if settings.lancedb_aws_access_key_id:
-        opts["aws_access_key_id"] = settings.lancedb_aws_access_key_id
-    if settings.lancedb_aws_secret_access_key:
-        opts["aws_secret_access_key"] = settings.lancedb_aws_secret_access_key
-    return opts
+OUTPUT_FIELDS = ["id", "source_type", "source_id", "title", "text", "metadata"]
 
 
-def _schema(dim: int) -> pa.Schema:
-    return pa.schema(
-        [
-            pa.field("id", pa.string()),
-            pa.field("source_type", pa.string()),
-            pa.field("source_id", pa.string()),
-            pa.field("title", pa.string()),
-            pa.field("text", pa.string()),
-            pa.field("metadata", pa.string()),  # JSON-encoded blob
-            pa.field("vector", pa.list_(pa.float32(), dim)),
-        ]
-    )
-
-
-def connect():
-    return lancedb.connect(
-        settings.lancedb_uri, storage_options=_storage_options()
+def connect() -> MilvusClient:
+    return MilvusClient(
+        uri=settings.milvus_uri,
+        token=settings.milvus_token or None,
+        db_name=settings.milvus_db_name or "default",
     )
 
 
@@ -64,44 +39,74 @@ class VectorStore:
     def __init__(
         self, table_name: Optional[str] = None, dim: Optional[int] = None
     ) -> None:
-        self.table_name = table_name or settings.lancedb_table
+        self.collection = table_name or settings.milvus_collection
         self.dim = dim or settings.embedding_dim
-        self.db = connect()
+        self.client = connect()
+
+    def schema(self):
+        # Typed scalar columns (not one JSON blob) so each field is its own
+        # readable column in Attu; metadata stays a native JSON field.
+        schema = self.client.create_schema(auto_id=False, enable_dynamic_field=False)
+        schema.add_field("id", DataType.VARCHAR, is_primary=True, max_length=512)
+        schema.add_field("source_type", DataType.VARCHAR, max_length=64)
+        schema.add_field("source_id", DataType.VARCHAR, max_length=256)
+        schema.add_field("title", DataType.VARCHAR, max_length=1024)
+        schema.add_field("text", DataType.VARCHAR, max_length=65535)
+        schema.add_field("metadata", DataType.JSON)
+        schema.add_field("vector", DataType.FLOAT_VECTOR, dim=self.dim)
+        return schema
 
     def rebuild(self, rows: list[dict[str, Any]]) -> int:
-        """Overwrite the table with ``rows`` (full rebuild; content is small)."""
-        table = self.db.create_table(
-            self.table_name, schema=_schema(self.dim), mode="overwrite"
+        """Overwrite the collection with ``rows`` (full rebuild; content is small)."""
+        if self.client.has_collection(self.collection):
+            self.client.drop_collection(self.collection)
+
+        index_params = self.client.prepare_index_params()
+        index_params.add_index(
+            field_name="vector", index_type="AUTOINDEX", metric_type="COSINE"
+        )
+        # create_collection with index_params also builds the index and loads it.
+        self.client.create_collection(
+            self.collection, schema=self.schema(), index_params=index_params
         )
         if rows:
-            table.add(rows)
+            self.client.insert(self.collection, rows)
+            self.client.flush(self.collection)
         return len(rows)
 
     def search(self, query_vector: list[float], top_k: int) -> list[dict[str, Any]]:
-        try:
-            table = self.db.open_table(self.table_name)
-        except Exception:
+        if not self.client.has_collection(self.collection):
             logger.warning(
-                "LanceDB table '%s' missing; run `python -m backend.rag.ingest`",
-                self.table_name,
+                "Milvus collection '%s' missing; run `python -m backend.rag.ingest`",
+                self.collection,
             )
             return []
 
-        hits = (
-            table.search(query_vector).distance_type("cosine").limit(top_k).to_list()
-        )
+        # Idempotent: a fast no-op once the server already has it loaded.
+        self.client.load_collection(self.collection)
+        hits = self.client.search(
+            collection_name=self.collection,
+            data=[query_vector],
+            anns_field="vector",
+            limit=top_k,
+            search_params={"metric_type": "COSINE"},
+            output_fields=OUTPUT_FIELDS,
+        )[0]
+
         results: list[dict[str, Any]] = []
         for h in hits:
+            entity = h.get("entity", {})
             results.append(
                 {
-                    "id": h.get("id"),
-                    "source_type": h.get("source_type"),
-                    "source_id": h.get("source_id"),
-                    "title": h.get("title"),
-                    "text": h.get("text"),
-                    "metadata": json.loads(h.get("metadata") or "{}"),
-                    # LanceDB cosine "distance" is 1 - similarity.
-                    "score": 1.0 - float(h.get("_distance", 1.0)),
+                    "id": entity.get("id"),
+                    "source_type": entity.get("source_type"),
+                    "source_id": entity.get("source_id"),
+                    "title": entity.get("title"),
+                    "text": entity.get("text"),
+                    "metadata": entity.get("metadata") or {},
+                    # COSINE metric: Milvus returns the similarity directly
+                    # (higher = better), so there's no 1 - distance conversion.
+                    "score": float(h.get("distance", 0.0)),
                 }
             )
         return results

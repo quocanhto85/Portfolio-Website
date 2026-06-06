@@ -111,7 +111,7 @@ tokens live via Server-Sent Events.
 | ------------- | ---------------------------------------------------------------------------------------------------------- |
 | HTTP layer    | FastAPI async endpoint (`POST /api/alfred/chat/`)                                                          |
 | LLM           | Ollama OpenAI-compatible API at `http://localhost:11434`                                                   |
-| Knowledge     | Always-on resume (from the content DB) **+ RAG** retrieval from LanceDB (see RAG section below)             |
+| Knowledge     | Always-on resume (from the content DB) **+ RAG** retrieval from Milvus (see RAG section below)             |
 | Streaming     | `StreamingResponse` + SSE (`text/event-stream`)                                                            |
 | Rate limiting | Sliding-window limiter, in-process store (or Redis when `REDIS_URL` is set)                                |
 | Persistence   | SQLAlchemy async — `ChatSession`, `ChatMessage` (SQLite by default)                                        |
@@ -162,7 +162,7 @@ export LANGFUSE_SECRET_KEY=sk-lf-...
 If the keys aren't set, the observability layer is a no-op — Alfred runs
 exactly the same, you just don't get traces.
 
-## 🧠 Alfred's knowledge — RAG pipeline (LanceDB)
+## 🧠 Alfred's knowledge — RAG pipeline (Milvus)
 
 Alfred grounds his answers in two layers:
 
@@ -178,23 +178,82 @@ Alfred grounds his answers in two layers:
 | Database                    | Role                                 | API key?     |
 | --------------------------- | ------------------------------------ | ------------ |
 | Postgres / SQLite (content) | source of truth (resume, articles)   | `DATABASE_URL` |
-| **LanceDB** (vectors)       | derived embeddings for search        | **none**     |
+| **Milvus** (vectors)        | derived embeddings for search        | `MILVUS_URI` |
 
-> **LanceDB is self-hosted and has _no_ API key.** It's a library that writes
-> vector files to a local folder (`./.lancedb`) in dev, or an S3-compatible
-> bucket (Cloudflare R2) in prod. The only key the pipeline needs is the
-> **embedding provider** (Jina by default).
+> **Milvus is self-hosted.** Dev runs a local standalone server in Docker — so
+> you can browse the collection (chunks, metadata, vectors) in the **Attu**
+> console at `http://localhost:8800`. Prod points `MILVUS_URI`/`MILVUS_TOKEN`
+> at a reachable Milvus you host or Zilliz Cloud. A local Milvus needs no
+> token; the only key the pipeline needs is the **embedding provider** (Jina by
+> default).
+
+### 🐳 Run Milvus + Attu locally (Docker)
+
+The dev vector store is a local **Milvus standalone** server, defined in
+[`docker-compose.milvus.yml`](docker-compose.milvus.yml) together with the
+**Attu** web console for browsing the embedded vectors. It runs as its own
+Compose project (`alfred-milvus`) with internal-only `etcd`/`minio`, so it never
+collides with the Langfuse stack.
+
+```bash
+# start (first run pulls ~1 GB of images; Milvus is ready in ~30–60s)
+docker compose -f docker-compose.milvus.yml up -d
+```
+
+| Container                  | Host port | Purpose                                     |
+| -------------------------- | --------- | ------------------------------------------- |
+| `alfred-milvus-standalone` | `19530`   | Milvus gRPC — what `MILVUS_URI` points at   |
+| `alfred-milvus-standalone` | `9091`    | Milvus health / metrics                     |
+| `alfred-milvus-attu`       | `8800`    | **Attu console** → <http://localhost:8800>  |
+| `alfred-milvus-etcd/minio` | —         | Milvus internals (not published to host)    |
+
+#### Connect Attu to Milvus
+
+Open **<http://localhost:8800>** and fill the connect form:
+
+| Field          | Value                              |
+| -------------- | ---------------------------------- |
+| Milvus Address | `alfred-milvus-standalone:19530`   |
+| Enable SSL     | **off**                            |
+| Authentication | leave blank (no auth locally)      |
+
+> ⚠️ **Two settings that otherwise show "No connection established":**
+> 1. **Turn _off_ "Enable SSL".** The local server is plaintext gRPC, so an SSL
+>    handshake fails before anything else is even tried.
+> 2. **Use `alfred-milvus-standalone:19530`, not `localhost:19530`.** Attu's
+>    server connects from *inside* its container, so it needs the Docker-network
+>    hostname — your host's `localhost` isn't reachable from there.
+
+Once connected, open **`alfred_chunks` → Data** to browse every chunk with its
+`title`, `text`, `source_type`, `metadata` (JSON), and `vector`.
+
+#### Manage the stack
+
+```bash
+docker compose -f docker-compose.milvus.yml ps                  # status + health
+docker compose -f docker-compose.milvus.yml logs -f standalone  # follow Milvus logs
+docker compose -f docker-compose.milvus.yml stop                # pause (keeps data)
+docker compose -f docker-compose.milvus.yml start               # resume
+docker compose -f docker-compose.milvus.yml restart attu        # restart just Attu
+docker compose -f docker-compose.milvus.yml down                # remove containers (keeps volumes)
+docker compose -f docker-compose.milvus.yml down -v             # ⚠️ also wipe vectors — re-run ingest after
+```
+
+Vectors live in named Docker volumes that survive `stop` and `down`, so you only
+need to re-run `python -m backend.rag.ingest` after a `down -v` or a content
+change. The stack is dev-only — production points `MILVUS_URI`/`MILVUS_TOKEN` at
+a hosted Milvus (see [Production](#production-vercel--neon--milvus) below).
 
 ### The pipeline
 
 ```
 INGEST (offline CLI) — load → chunk → embed → store
-  DB content ──▶ chunk ──▶ embed (Jina) ──▶ store vectors (LanceDB)
+  DB content ──▶ chunk ──▶ embed (Jina) ──▶ store vectors (Milvus)
               chunking.py  embeddings.py    vectorstore.py
               └──────────── backend/rag/ingest.py orchestrates ───────────┘
 
 QUERY (per chat message) — embed → retrieve → ground → generate
-  question ──▶ embed ──▶ LanceDB top-k ──▶ relevance floor ──▶ Alfred's prompt
+  question ──▶ embed ──▶ Milvus top-k ──▶ relevance floor ──▶ Alfred's prompt
             └─ backend/rag/retrieval.py ─┘                  routers/alfred.py
 ```
 
@@ -208,11 +267,12 @@ python -m backend.rag.ingest
 ```
 
 It reads the content DB, builds chunks, embeds them with the configured
-provider, and **overwrites** the LanceDB table. It's idempotent — re-run it
+provider, and **overwrites** the Milvus collection. It's idempotent — re-run it
 whenever you change resume/article content (after re-seeding).
 
-**Prerequisites:** (1) content is seeded (`python -m backend.seed_content`),
-and (2) `EMBEDDING_API_KEY` is set (next step).
+**Prerequisites:** (1) Milvus is running (`docker compose -f
+docker-compose.milvus.yml up -d` — see above), (2) content is seeded (`python -m
+backend.seed_content`), and (3) `EMBEDDING_API_KEY` is set (next step).
 
 ### Get embedding API key (Jina — free, no credit card)
 
@@ -233,10 +293,13 @@ echo 'EMBEDDING_API_KEY=jina_xxxxxxxxxxxxxxxx' >> .env
 # 2. Seed content (if not already done)
 python -m backend.seed_content
 
-# 3. Build the vector table
+# 3. Start Milvus (the vector store) + Attu console
+docker compose -f docker-compose.milvus.yml up -d
+
+# 4. Build the vector collection
 python -m backend.rag.ingest
 
-# 4. Start the backend — Alfred now retrieves automatically
+# 5. Start the backend — Alfred now retrieves automatically
 uvicorn backend.main:app --reload --port 8000
 ```
 
@@ -250,7 +313,7 @@ provider error never breaks a conversation; it simply skips retrieval.
 | ---------------- | -------------------------------------------------------------------- |
 | `chunking.py`    | DB rows/blocks → retrievable text chunks (media as metadata only)    |
 | `embeddings.py`  | Pluggable, OpenAI-shaped embedder (Jina default)                     |
-| `vectorstore.py` | LanceDB wrapper (local dir in dev, R2/S3 in prod)                    |
+| `vectorstore.py` | Milvus wrapper (Docker standalone in dev; hosted/Zilliz in prod)     |
 | `ingest.py`      | CLI: orchestrates load → chunk → embed → store                       |
 | `retrieval.py`   | Embed query → top-k → relevance floor → context                      |
 | `reranker.py`    | Reranking seam (no-op today; gated by `RAG_RERANK_ENABLED`)          |
@@ -263,17 +326,17 @@ provider error never breaks a conversation; it simply skips retrieval.
 | `EMBEDDING_API_BASE`                       | `https://api.jina.ai/v1`             | OpenAI-shaped `/embeddings` base URL                 |
 | `EMBEDDING_MODEL`                          | `jina-embeddings-v3`                 | Embedding model id                                   |
 | `EMBEDDING_DIM`                            | `1024`                               | Vector dimension (must match the model)              |
-| `EMBEDDING_QUERY_TASK` / `_PASSAGE_TASK`   | `retrieval.query` / `.passage`       | Jina task hints; clear them for other providers      |
-| `LANCEDB_URI`                              | `./.lancedb`                         | Local dir (dev) or `s3://bucket/...` (prod)          |
-| `LANCEDB_TABLE`                            | `alfred_chunks`                      | Vector table name                                    |
-| `LANCEDB_S3_ENDPOINT`                      | *unset*                              | R2 endpoint (`https://<acct>.r2.cloudflarestorage.com`) |
-| `LANCEDB_AWS_ACCESS_KEY_ID` / `_SECRET..`  | *unset*                              | R2 credentials (read only when URI is `s3://`)       |
+| `EMBEDDING_QUERY_TASK` / `EMBEDDING_PASSAGE_TASK` | `retrieval.query` / `.passage`       | Jina task hints; clear them for other providers      |
+| `MILVUS_URI`                               | `http://localhost:19530`             | Milvus endpoint (local Docker, or hosted/Zilliz)     |
+| `MILVUS_TOKEN`                             | *unset*                              | API key / `user:pass` (blank for local Docker)       |
+| `MILVUS_COLLECTION`                        | `alfred_chunks`                      | Vector collection name                               |
+| `MILVUS_DB_NAME`                           | *unset*                              | Milvus database (defaults to `default`)              |
 | `RAG_ENABLED`                              | `true`                               | Master switch                                        |
 | `RAG_TOP_K`                                | `5`                                  | Chunks fetched per query                             |
 | `RAG_MIN_SCORE`                            | `0.30`                               | Cosine-similarity floor; drops weak matches          |
 | `RAG_RERANK_ENABLED`                       | `false`                              | Reranker seam (no-op today)                          |
 
-### Production (Vercel + Neon + R2)
+### Production (Vercel + Neon + Milvus)
 
 Vercel's filesystem is read-only, so production points at managed services:
 
@@ -284,20 +347,21 @@ Vercel's filesystem is read-only, so production points at managed services:
    `sslmode`→asyncpg's `ssl`). For Vercel, prefer Neon's **pooled** endpoint (the
    `-pooler` host) — the prepared-statement cache is already disabled so PgBouncer
    won't throw "prepared statement does not exist".
-2. **Cloudflare R2** — `LANCEDB_URI=s3://your-bucket/alfred`,
-   `LANCEDB_S3_ENDPOINT=https://<account-id>.r2.cloudflarestorage.com`, plus the
-   R2 access key/secret.
+2. **Milvus** — point `MILVUS_URI` (and `MILVUS_TOKEN`) at a network-reachable
+   Milvus: one you host yourself, or a Zilliz Cloud cluster (managed Milvus,
+   free tier). Locally, `docker compose -f docker-compose.milvus.yml up -d`
+   gives you Milvus + the Attu console at `http://localhost:8800`.
 3. Set the same `EMBEDDING_API_KEY` in Vercel's environment variables.
-4. Seed + ingest **once** from your machine, with `DATABASE_URL`/`LANCEDB_*`
-   pointed at Neon/R2:
+4. Seed + ingest **once** from your machine, with `DATABASE_URL`/`MILVUS_*`
+   pointed at Neon/Milvus:
 
    ```bash
    python -m backend.seed_content
    python -m backend.rag.ingest
    ```
 
-At request time Vercel only **reads** vectors from R2 — it never writes, so the
-read-only filesystem is a non-issue.
+At request time Vercel only **searches** Milvus over the network — it never
+writes to the local filesystem, so the read-only filesystem is a non-issue.
 
 ### Maintenance — chat-log retention
 
@@ -318,7 +382,7 @@ cron job or a Vercel scheduled function).
 
 ## Configuration
 
-Environment variables (see `backend/config.py`). Embedding / LanceDB / RAG
+Environment variables (see `backend/config.py`). Embedding / Milvus / RAG
 variables are listed in the **RAG pipeline** section above:
 
 
