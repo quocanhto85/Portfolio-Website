@@ -71,7 +71,13 @@ class VectorStore:
         )
         if rows:
             self.client.insert(self.collection, rows)
-            self.client.flush(self.collection)
+            # Best-effort: a local Milvus benefits from an explicit flush, but
+            # some managed/serverless backends (e.g. Zilliz Cloud) auto-flush and
+            # may reject the call — never let that fail the rebuild.
+            try:
+                self.client.flush(self.collection)
+            except Exception:  # pragma: no cover - backend-specific
+                logger.debug("flush skipped (backend auto-flushes)", exc_info=True)
         return len(rows)
 
     def search(self, query_vector: list[float], top_k: int) -> list[dict[str, Any]]:
