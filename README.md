@@ -347,17 +347,32 @@ Vercel's filesystem is read-only, so production points at managed services:
    `sslmode`→asyncpg's `ssl`). For Vercel, prefer Neon's **pooled** endpoint (the
    `-pooler` host) — the prepared-statement cache is already disabled so PgBouncer
    won't throw "prepared statement does not exist".
-2. **Milvus** — point `MILVUS_URI` (and `MILVUS_TOKEN`) at a network-reachable
-   Milvus: one you host yourself, or a Zilliz Cloud cluster (managed Milvus,
-   free tier). Locally, `docker compose -f docker-compose.milvus.yml up -d`
-   gives you Milvus + the Attu console at `http://localhost:8800`.
+2. **Milvus (vectors)** — production needs a *network-reachable* Milvus (Vercel
+   can't host the stateful server). Easiest is **Zilliz Cloud** (managed Milvus,
+   free tier):
+   1. Sign up at [cloud.zilliz.com](https://cloud.zilliz.com) and create a free
+      **Serverless** cluster (pick a region near your Vercel/Neon region).
+   2. Open the cluster's **Connect** panel and copy the **Public Endpoint**
+      (`https://<id>.api.<region>.zillizcloud.com`) and an **API Key** (token).
+   3. Set in Vercel: `MILVUS_URI=<public endpoint>`, `MILVUS_TOKEN=<api key>`,
+      `MILVUS_COLLECTION=alfred_chunks`.
+
+   Prefer to self-host? Run Milvus on a VPS, expose `19530` with auth + TLS, and
+   point `MILVUS_URI`/`MILVUS_TOKEN` there instead. Either way, local dev keeps
+   the Docker stack (`docker compose -f docker-compose.milvus.yml up -d`, Attu on
+   `:8800`) — only the env vars differ between dev and prod.
 3. Set the same `EMBEDDING_API_KEY` in Vercel's environment variables.
-4. Seed + ingest **once** from your machine, with `DATABASE_URL`/`MILVUS_*`
-   pointed at Neon/Milvus:
+4. Seed + ingest **once** from your machine, pointed at the prod services.
+   Real env vars override `.env`, so you can target prod inline without editing
+   `.env` (which keeps pointing at local Docker):
 
    ```bash
+   # content → Neon (DATABASE_URL in .env is already your Neon URL)
    python -m backend.seed_content
-   python -m backend.rag.ingest
+
+   # vectors → Zilliz / your prod Milvus
+   MILVUS_URI="https://<id>.api.<region>.zillizcloud.com" \
+     MILVUS_TOKEN="<api-key>" python -m backend.rag.ingest
    ```
 
 At request time Vercel only **searches** Milvus over the network — it never
