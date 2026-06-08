@@ -8,20 +8,19 @@ const STATUS_LABEL: Record<LabStatus, string> = {
 };
 
 const STATUS_DOT: Record<LabStatus, string> = {
-  operational:
-    "bg-emerald-300 shadow-[0_0_8px_rgba(110,231,183,0.9)]",
-  prototype: "bg-amber-300 shadow-[0_0_8px_rgba(252,211,77,0.9)]",
-  provisioning: "bg-cyan-300 shadow-[0_0_8px_rgba(57,243,255,0.9)]",
+  operational: "bg-[#39ff9e] shadow-[0_0_9px_#39ff9e]",
+  prototype: "bg-[#ffc24b] shadow-[0_0_9px_#ffc24b]",
+  provisioning: "bg-[#22e6ff] shadow-[0_0_9px_#22e6ff]",
 };
 
 const STATUS_PILL: Record<LabStatus, string> = {
-  operational:
-    "text-emerald-300 border-emerald-300/40 bg-emerald-300/10",
-  prototype: "text-amber-300 border-amber-300/40 bg-amber-300/10",
-  provisioning: "text-cyan-200 border-cyan-200/40 bg-cyan-200/10",
+  operational: "text-[#39ff9e] border-[rgba(57,255,158,0.4)] bg-[rgba(57,255,158,0.08)]",
+  prototype: "text-[#ffc24b] border-[rgba(255,194,75,0.4)] bg-[rgba(255,194,75,0.08)]",
+  provisioning: "text-[#22e6ff] border-[rgba(34,230,255,0.4)] bg-[rgba(34,230,255,0.08)]",
 };
 
-const HIGHLIGHTED_STACKS = new Set(["Next.js", "Redux", "Socket.io", "MongoDB"]);
+// Total module bays in the console — ghosts fill the unused capacity.
+const MODULE_BAYS = 4;
 
 function LabTile({ lab }: { lab: Lab }) {
   const disabled = lab.href == null;
@@ -30,68 +29,50 @@ function LabTile({ lab }: { lab: Lab }) {
   const card = (
     <div
       className={[
-        "group relative flex h-full flex-col overflow-hidden rounded-xl",
-        "border border-cyan-300/40",
-        "bg-[linear-gradient(180deg,rgba(2,30,45,0.55),rgba(0,10,20,0.72))]",
-        "p-4 transition-all duration-300",
+        "hud-sweep-tile group flex h-full flex-col rounded-[10px] border border-[rgba(40,200,230,0.22)]",
+        "bg-[linear-gradient(180deg,rgba(4,24,36,0.55),rgba(2,9,17,0.66))] p-3.5",
         disabled
-          ? "cursor-pointer"
-          : "hover:-translate-y-0.5 hover:border-cyan-200 hover:shadow-[0_0_18px_rgba(69,229,255,0.28)]",
+          ? ""
+          : "hover:-translate-y-[3px] hover:border-[rgba(60,225,255,0.55)] hover:shadow-[0_0_22px_rgba(34,230,255,0.22)]",
       ].join(" ")}
     >
-      {/* scan-line sweep on hover */}
-      <div className="pointer-events-none absolute inset-x-0 -top-16 h-16 bg-gradient-to-b from-transparent via-cyan-200/15 to-transparent opacity-0 transition-all duration-700 group-hover:top-[calc(100%+4rem)] group-hover:opacity-100" />
-
-      {/* header row: dot + id + status pill */}
       <div className="flex items-center justify-between gap-2">
-        <div className="flex items-center gap-2">
-          <span
-            className={`h-1.5 w-1.5 rounded-full ${STATUS_DOT[lab.status]}`}
-          />
-          <span className="text-[10px] tracking-[0.14em] text-cyan-200/70">
-            {lab.id}
-          </span>
+        <div className="flex items-center gap-2 font-mono text-[0.6rem] tracking-[0.14em] text-[#5e8f99]">
+          <span className={`h-1.5 w-1.5 rounded-full hud-dot-pulse ${STATUS_DOT[lab.status]}`} />
+          {lab.id}
         </div>
         <span
-          className={`rounded-full border px-2 py-0.5 text-[9px] tracking-[0.12em] ${STATUS_PILL[lab.status]}`}
+          className={`rounded-full border px-2 py-0.5 font-mono text-[0.55rem] tracking-[0.12em] ${STATUS_PILL[lab.status]}`}
         >
           {STATUS_LABEL[lab.status]}
         </span>
       </div>
 
-      {/* title + tagline */}
-      <h3 className="mt-3 text-sm font-medium tracking-wide text-cyan-50">
+      <h3 className="mt-2.5 text-[0.98rem] font-bold tracking-wide text-[#e6fbff]">
         {lab.title}
       </h3>
-      <p className="mt-1 text-xs leading-relaxed text-cyan-100/70">
+      <p className="mt-1.5 text-[0.78rem] leading-relaxed text-[#8fc3cd]">
         {lab.tagline}
       </p>
 
-      {/* tech stack tags */}
       <div className="mt-auto flex flex-wrap gap-1.5 pt-3">
         {lab.stack.map((tech) => (
           <span
             key={tech}
-            className={[
-              "rounded-full border px-2 py-0.5 text-[10px] transition-colors",
-              HIGHLIGHTED_STACKS.has(tech)
-                ? "border-cyan-200/85 bg-cyan-200/25 font-semibold text-cyan-50 shadow-[0_0_10px_rgba(103,232,249,0.35)]"
-                : "border-cyan-300/30 bg-cyan-300/5 text-cyan-100/75",
-            ].join(" ")}
+            className="rounded-md border border-[rgba(40,200,230,0.22)] bg-[rgba(34,230,255,0.05)] px-2 py-0.5 font-mono text-[0.6rem] text-[#a6e8f0]"
           >
             {tech}
           </span>
         ))}
       </div>
 
-      {/* CTA */}
-      <div className="mt-3 flex items-center justify-end border-t border-cyan-300/20 pt-2">
+      <div className="mt-3 flex items-center justify-end border-t border-[rgba(40,200,230,0.22)] pt-2">
         <span
           className={[
-            "text-[11px] tracking-[0.16em] transition-colors duration-300",
+            "font-mono text-[0.62rem] tracking-[0.2em] transition-colors duration-300",
             disabled
-              ? "text-cyan-200/45 group-hover:text-cyan-200/70"
-              : "text-cyan-100 group-hover:text-white",
+              ? "text-[#5e8f99] group-hover:text-[#8fc3cd]"
+              : "text-[#7df9ff] group-hover:text-white",
           ].join(" ")}
         >
           {disabled ? "STANDBY" : isExternal ? "LAUNCH ↗" : "LAUNCH ▸"}
@@ -102,10 +83,7 @@ function LabTile({ lab }: { lab: Lab }) {
 
   if (disabled) {
     return (
-      <div
-        className="text-left opacity-80"
-        aria-label={`${lab.title} — not yet available`}
-      >
+      <div className="text-left opacity-80" aria-label={`${lab.title} — not yet available`}>
         {card}
       </div>
     );
@@ -129,35 +107,45 @@ function LabTile({ lab }: { lab: Lab }) {
 
 function GhostTile() {
   return (
-    <div className="flex min-h-[180px] flex-col items-center justify-center rounded-xl border border-dashed border-cyan-300/20 bg-[linear-gradient(180deg,rgba(2,30,45,0.2),rgba(0,10,20,0.3))] p-4 text-center">
-      <span className="text-[10px] tracking-[0.18em] text-cyan-200/30">
-        EMPTY SLOT
+    <div className="grid min-h-[170px] place-content-center rounded-[10px] border border-dashed border-[rgba(40,200,230,0.2)] bg-[linear-gradient(180deg,rgba(4,24,36,0.2),rgba(2,9,17,0.3))] p-4 text-center">
+      <span className="font-mono text-[0.62rem] tracking-[0.22em] text-[#5e8f99]">
+        ▢ EMPTY BAY
       </span>
-      <span className="mt-1.5 text-xs text-cyan-100/30">
-        More modules inbound...
+      <span className="mt-1.5 font-mono text-[0.62rem] tracking-[0.1em] text-[#3f6770]">
+        MODULE INBOUND…
       </span>
     </div>
   );
 }
 
 export default function LabsPanel() {
-  return (
-    <div className="monitor-screen">
-      <div className="monitor-grid-overlay" />
+  const openBays = Math.max(0, MODULE_BAYS - labs.length);
 
-      <div className="monitor-header">
-        <span className="monitor-dot" />
-        <p className="monitor-title">LABS // MICRO-APPS</p>
-        <span className="monitor-scan">
-          {labs.length} MODULE{labs.length !== 1 && "S"} LOADED
+  return (
+    <div className="hud-panel rounded-xl border border-[rgba(40,200,230,0.22)] bg-[linear-gradient(150deg,rgba(6,20,30,0.78),rgba(3,9,16,0.9))] p-4 shadow-[0_0_0_1px_rgba(34,230,255,0.05),inset_0_0_34px_rgba(0,140,190,0.05)]">
+      <span className="hud-bracket hud-bracket-tl" />
+      <span className="hud-bracket hud-bracket-tr" />
+      <span className="hud-bracket hud-bracket-bl" />
+      <span className="hud-bracket hud-bracket-br" />
+      <span className="hud-panel-scan" />
+
+      <div className="relative z-[2] mb-3 flex items-center gap-2.5 border-b border-[rgba(40,200,230,0.22)] pb-2.5">
+        <span className="hud-dot-pulse h-2.5 w-2.5 rounded-full bg-[#22e6ff] shadow-[0_0_12px_#22e6ff]" />
+        <h2 className="font-mono text-[0.74rem] font-semibold tracking-[0.22em] text-[#7df9ff]">
+          LABS // DEPLOYED MODULES
+        </h2>
+        <span className="ml-auto font-mono text-[0.6rem] tracking-[0.14em] text-[#5e8f99]">
+          {labs.length} LOADED · {openBays} {openBays === 1 ? "BAY" : "BAYS"} OPEN
         </span>
       </div>
 
-      <div className="relative z-10 grid grid-cols-1 gap-3 sm:grid-cols-2">
+      <div className="relative z-[2] grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
         {labs.map((lab) => (
           <LabTile key={lab.slug} lab={lab} />
         ))}
-        <GhostTile />
+        {Array.from({ length: openBays }).map((_, i) => (
+          <GhostTile key={`ghost-${i}`} />
+        ))}
       </div>
     </div>
   );

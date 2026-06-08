@@ -1,0 +1,496 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>BATCAVE OPS // Tactical HUD Preview</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;600;700;900&family=Share+Tech+Mono&family=Rajdhani:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<style>
+  :root{
+    --bg:#04070d;
+    --bg2:#060b14;
+    --panel:rgba(6,16,24,0.72);
+    --cyan:#22e6ff;
+    --cyan-bright:#7df9ff;
+    --green:#39ff9e;
+    --amber:#ffc24b;
+    --rose:#ff5d73;
+    --line:rgba(40,200,230,0.22);
+    --line-strong:rgba(60,225,255,0.55);
+    --text:#bfeef6;
+    --text-dim:#5e8f99;
+    --mono:'Share Tech Mono', ui-monospace, monospace;
+    --display:'Orbitron', sans-serif;
+    --ui:'Rajdhani', system-ui, sans-serif;
+  }
+
+  *{box-sizing:border-box; margin:0; padding:0}
+  html,body{height:100%}
+  body{
+    background:
+      radial-gradient(1200px 700px at 12% -10%, rgba(43,108,176,0.16), transparent 60%),
+      radial-gradient(1000px 600px at 100% 0%, rgba(0,196,255,0.12), transparent 55%),
+      radial-gradient(900px 600px at 50% 120%, rgba(34,230,255,0.07), transparent 60%),
+      linear-gradient(180deg,#070d18 0%, var(--bg) 55%, #03050a 100%);
+    color:var(--text);
+    font-family:var(--ui);
+    min-height:100%;
+    overflow-x:hidden;
+    letter-spacing:.02em;
+  }
+
+  /* ---------- global HUD overlays ---------- */
+  .fx-grid{
+    position:fixed; inset:0; pointer-events:none; z-index:1; opacity:.5;
+    background-image:
+      linear-gradient(rgba(60,225,255,0.045) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(60,225,255,0.045) 1px, transparent 1px);
+    background-size:44px 44px;
+    mask-image:radial-gradient(circle at 50% 30%, #000 40%, transparent 90%);
+  }
+  .fx-scan{
+    position:fixed; inset:0; pointer-events:none; z-index:2;
+    background:repeating-linear-gradient(0deg, rgba(0,0,0,0) 0px, rgba(0,0,0,0) 2px, rgba(0,20,28,0.25) 3px, rgba(0,0,0,0) 4px);
+    mix-blend-mode:overlay; opacity:.55;
+  }
+  .fx-sweep{
+    position:fixed; left:0; right:0; height:160px; pointer-events:none; z-index:3;
+    background:linear-gradient(180deg, transparent, rgba(34,230,255,0.06) 45%, rgba(125,249,255,0.10) 50%, rgba(34,230,255,0.06) 55%, transparent);
+    animation:sweepDown 7s linear infinite; opacity:.7;
+  }
+  @keyframes sweepDown{0%{top:-160px}100%{top:100%}}
+  .fx-vignette{position:fixed;inset:0;pointer-events:none;z-index:2;box-shadow:inset 0 0 200px rgba(0,0,0,0.85)}
+
+  /* ---------- boot sequence ---------- */
+  #boot{
+    position:fixed; inset:0; z-index:50; background:#03060c;
+    display:flex; align-items:center; justify-content:center; flex-direction:column;
+    font-family:var(--mono); color:var(--cyan);
+    transition:opacity .6s ease, visibility .6s;
+  }
+  #boot.done{opacity:0; visibility:hidden}
+  .boot-box{width:min(560px,86vw)}
+  .boot-title{font-family:var(--display); font-weight:900; letter-spacing:.18em; font-size:1.1rem; color:var(--cyan-bright); text-shadow:0 0 18px rgba(34,230,255,.6); margin-bottom:18px; display:flex; align-items:center; gap:10px}
+  .boot-line{font-size:.82rem; line-height:1.9; white-space:pre; opacity:0; color:#86d9e6}
+  .boot-line .ok{color:var(--green)}
+  .boot-line .warn{color:var(--amber)}
+  .boot-bar{margin-top:18px; height:6px; border:1px solid var(--line-strong); border-radius:3px; overflow:hidden; background:rgba(0,0,0,.4)}
+  .boot-bar i{display:block; height:100%; width:0; background:linear-gradient(90deg,var(--cyan),var(--green)); box-shadow:0 0 14px var(--cyan); animation:bootFill 2.4s ease forwards}
+  @keyframes bootFill{to{width:100%}}
+
+  /* ---------- layout shell ---------- */
+  .app{position:relative; z-index:5; max-width:1320px; margin:0 auto; padding:18px clamp(14px,3vw,30px) 90px; opacity:0; transform:translateY(8px); transition:opacity .7s ease .1s, transform .7s ease .1s}
+  .app.live{opacity:1; transform:none}
+
+  /* top command bar */
+  .topbar{
+    display:flex; align-items:center; gap:16px; flex-wrap:wrap;
+    border:1px solid var(--line); border-radius:12px;
+    background:linear-gradient(120deg, rgba(6,20,30,.82), rgba(4,10,18,.9));
+    padding:12px 16px; position:relative; overflow:hidden;
+    box-shadow:0 0 0 1px rgba(34,230,255,.06), inset 0 0 30px rgba(0,150,200,.05);
+  }
+  .topbar::after{content:""; position:absolute; left:0; top:0; height:2px; width:100%; background:linear-gradient(90deg,transparent,var(--cyan),transparent); animation:railSlide 5s linear infinite}
+  @keyframes railSlide{0%{transform:translateX(-100%)}100%{transform:translateX(100%)}}
+  .brand{display:flex; align-items:center; gap:12px; min-width:0}
+  .crest{font-size:1.6rem; filter:drop-shadow(0 0 10px rgba(34,230,255,.7))}
+  .brand h1{font-family:var(--display); font-weight:800; font-size:1.02rem; letter-spacing:.16em; color:#eafdff; line-height:1.1}
+  .brand h1 b{color:var(--cyan-bright); text-shadow:0 0 14px rgba(34,230,255,.6)}
+  .brand .sub{font-family:var(--mono); font-size:.62rem; letter-spacing:.28em; color:var(--text-dim)}
+  .topstats{margin-left:auto; display:flex; align-items:center; gap:18px; flex-wrap:wrap}
+  .stat{display:flex; flex-direction:column; line-height:1.1}
+  .stat .k{font-family:var(--mono); font-size:.56rem; letter-spacing:.22em; color:var(--text-dim)}
+  .stat .v{font-family:var(--mono); font-size:.9rem; color:var(--cyan-bright)}
+  .stat .v.green{color:var(--green)}
+  .led{display:inline-flex; align-items:center; gap:7px; font-family:var(--mono); font-size:.62rem; letter-spacing:.2em; color:var(--green)}
+  .led .dot{width:8px;height:8px;border-radius:50%;background:var(--green); box-shadow:0 0 10px var(--green); animation:pulse 1.6s ease-in-out infinite}
+  @keyframes pulse{0%,100%{opacity:1; transform:scale(1)}50%{opacity:.45; transform:scale(.7)}}
+
+  /* signal bars */
+  .signal{display:inline-flex; align-items:flex-end; gap:2px; height:14px}
+  .signal i{width:3px; background:var(--cyan); border-radius:1px; opacity:.4; animation:sig 1.4s ease-in-out infinite}
+  .signal i:nth-child(1){height:4px; animation-delay:0s}
+  .signal i:nth-child(2){height:7px; animation-delay:.15s}
+  .signal i:nth-child(3){height:10px; animation-delay:.3s}
+  .signal i:nth-child(4){height:14px; animation-delay:.45s}
+  @keyframes sig{0%,100%{opacity:.35}50%{opacity:1; box-shadow:0 0 8px var(--cyan)}}
+
+  /* grid */
+  .grid{display:grid; gap:16px; margin-top:16px; grid-template-columns:repeat(12,1fr)}
+  .col-7{grid-column:span 7}
+  .col-5{grid-column:span 5}
+  .col-4{grid-column:span 4}
+  .col-8{grid-column:span 8}
+  .col-12{grid-column:span 12}
+
+  /* ---------- panel with tactical corner brackets ---------- */
+  .panel{
+    position:relative; border:1px solid var(--line); border-radius:12px;
+    background:linear-gradient(150deg, rgba(6,20,30,.78), rgba(3,9,16,.9));
+    padding:14px 16px 16px; overflow:hidden;
+    box-shadow:0 0 0 1px rgba(34,230,255,.05), inset 0 0 34px rgba(0,140,190,.05);
+  }
+  .panel::before{ /* faint inner grid */
+    content:""; position:absolute; inset:0; pointer-events:none; opacity:.4;
+    background-image:linear-gradient(rgba(60,225,255,0.05) 1px, transparent 1px),linear-gradient(90deg, rgba(60,225,255,0.04) 1px, transparent 1px);
+    background-size:26px 26px;
+  }
+  .bracket{position:absolute; width:16px; height:16px; border:2px solid var(--line-strong); pointer-events:none; opacity:.8; transition:.3s}
+  .bracket.tl{top:7px; left:7px; border-right:0; border-bottom:0}
+  .bracket.tr{top:7px; right:7px; border-left:0; border-bottom:0}
+  .bracket.bl{bottom:7px; left:7px; border-right:0; border-top:0}
+  .bracket.br{bottom:7px; right:7px; border-left:0; border-top:0}
+  .panel:hover .bracket{border-color:var(--cyan-bright); box-shadow:0 0 10px rgba(34,230,255,.5)}
+
+  .phead{position:relative; z-index:2; display:flex; align-items:center; gap:10px; padding-bottom:10px; margin-bottom:12px; border-bottom:1px solid var(--line)}
+  .phead .dot{width:9px;height:9px;border-radius:50%;background:var(--cyan); box-shadow:0 0 12px var(--cyan); animation:pulse 1.8s ease-in-out infinite}
+  .phead h2{font-family:var(--display); font-weight:600; font-size:.74rem; letter-spacing:.22em; color:var(--cyan-bright)}
+  .phead .tag{margin-left:auto; font-family:var(--mono); font-size:.6rem; letter-spacing:.16em; color:var(--text-dim)}
+  .phead .tag.live{color:var(--green)}
+
+  /* scanning line that sweeps a panel periodically */
+  .panel-scan{position:absolute; left:0; right:0; top:-40%; height:40%; z-index:1; pointer-events:none;
+    background:linear-gradient(180deg,transparent, rgba(34,230,255,0.10), transparent);
+    animation:panelScan 6s ease-in-out infinite}
+  @keyframes panelScan{0%{top:-45%}55%{top:115%}100%{top:115%}}
+
+  /* ---------- comms channels ---------- */
+  .channels{position:relative; z-index:2; display:grid; grid-template-columns:1fr 1fr; gap:10px}
+  .chan{display:flex; align-items:center; gap:12px; border:1px solid var(--line); border-radius:9px; padding:11px 13px;
+    background:linear-gradient(180deg, rgba(4,26,38,.5), rgba(2,10,18,.6)); cursor:pointer; transition:.22s; position:relative; overflow:hidden}
+  .chan::after{content:""; position:absolute; inset:0; background:linear-gradient(90deg,transparent, rgba(34,230,255,.12), transparent); transform:translateX(-100%); transition:.5s}
+  .chan:hover{border-color:var(--line-strong); transform:translateY(-2px); box-shadow:0 0 18px rgba(34,230,255,.22)}
+  .chan:hover::after{transform:translateX(100%)}
+  .chan .ico{width:34px;height:34px; display:grid; place-items:center; border:1px solid var(--line); border-radius:8px; font-family:var(--mono); color:var(--cyan-bright); background:rgba(34,230,255,.06)}
+  .chan .meta{display:flex; flex-direction:column; min-width:0}
+  .chan .meta .lbl{font-weight:600; font-size:.92rem; color:#dffbff}
+  .chan .meta .id{font-family:var(--mono); font-size:.58rem; letter-spacing:.18em; color:var(--text-dim)}
+  .chan .right{margin-left:auto; display:flex; flex-direction:column; align-items:flex-end; gap:4px}
+  .chan .right .st{font-family:var(--mono); font-size:.55rem; letter-spacing:.14em; color:var(--green)}
+
+  /* ---------- radar / telemetry mini panel ---------- */
+  .radar-wrap{position:relative; z-index:2; display:flex; gap:16px; align-items:center}
+  .radar{position:relative; width:128px; height:128px; flex:0 0 auto; border-radius:50%;
+    border:1px solid var(--line-strong);
+    background:radial-gradient(circle, rgba(34,230,255,.10), transparent 70%);
+    overflow:hidden}
+  .radar .ring{position:absolute; inset:18%; border:1px solid rgba(34,230,255,.18); border-radius:50%}
+  .radar .ring.r2{inset:34%}
+  .radar .ring.r3{inset:50%}
+  .radar .cross,.radar .cross2{position:absolute; background:rgba(34,230,255,.15)}
+  .radar .cross{left:50%; top:0; width:1px; height:100%}
+  .radar .cross2{top:50%; left:0; height:1px; width:100%}
+  .radar .beam{position:absolute; inset:0; border-radius:50%;
+    background:conic-gradient(from 0deg, rgba(57,255,158,.55), rgba(57,255,158,0) 45deg, transparent 360deg);
+    animation:spin 3.2s linear infinite; mix-blend-mode:screen}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  .radar .blip{position:absolute; width:6px;height:6px;border-radius:50%; background:var(--green); box-shadow:0 0 10px var(--green); animation:blip 3.2s ease-in-out infinite}
+  .radar .blip.b1{top:32%; left:60%; animation-delay:.4s}
+  .radar .blip.b2{top:58%; left:40%; animation-delay:1.6s}
+  .radar .blip.b3{top:46%; left:70%; animation-delay:2.4s}
+  @keyframes blip{0%,100%{opacity:0; transform:scale(.4)}10%{opacity:1; transform:scale(1)}60%{opacity:.2}}
+  .telem{flex:1; display:flex; flex-direction:column; gap:9px}
+  .trow{display:flex; flex-direction:column; gap:4px}
+  .trow .tl{display:flex; justify-content:space-between; font-family:var(--mono); font-size:.6rem; letter-spacing:.12em; color:var(--text-dim)}
+  .trow .tl b{color:var(--cyan-bright)}
+  .meter{height:6px; border:1px solid var(--line); border-radius:4px; overflow:hidden; background:rgba(0,0,0,.4)}
+  .meter i{display:block; height:100%; background:linear-gradient(90deg,var(--cyan),var(--green)); box-shadow:0 0 10px rgba(34,230,255,.5); border-radius:3px}
+
+  /* sparkline */
+  .spark{margin-top:4px; height:40px; width:100%}
+  .spark polyline{fill:none; stroke:var(--cyan); stroke-width:1.6; filter:drop-shadow(0 0 4px rgba(34,230,255,.7))}
+
+  /* ---------- modules (labs) ---------- */
+  .modules{position:relative; z-index:2; display:grid; grid-template-columns:1fr 1fr; gap:12px}
+  .mod{position:relative; border:1px solid var(--line); border-radius:10px; padding:13px; overflow:hidden;
+    background:linear-gradient(180deg, rgba(4,24,36,.55), rgba(2,9,17,.66)); transition:.25s; cursor:pointer}
+  .mod:hover{transform:translateY(-3px); border-color:var(--line-strong); box-shadow:0 0 22px rgba(34,230,255,.22)}
+  .mod .mtop{display:flex; align-items:center; justify-content:space-between; gap:8px}
+  .mod .mid{display:flex; align-items:center; gap:7px; font-family:var(--mono); font-size:.6rem; letter-spacing:.14em; color:var(--text-dim)}
+  .mod .mid .d{width:7px;height:7px;border-radius:50%}
+  .d.green{background:var(--green); box-shadow:0 0 9px var(--green); animation:pulse 1.8s infinite}
+  .d.amber{background:var(--amber); box-shadow:0 0 9px var(--amber); animation:pulse 1.8s infinite}
+  .pill{font-family:var(--mono); font-size:.55rem; letter-spacing:.12em; padding:3px 8px; border-radius:20px; border:1px solid}
+  .pill.op{color:var(--green); border-color:rgba(57,255,158,.4); background:rgba(57,255,158,.08)}
+  .pill.pr{color:var(--amber); border-color:rgba(255,194,75,.4); background:rgba(255,194,75,.08)}
+  .mod h3{font-family:var(--ui); font-weight:700; font-size:.98rem; color:#e6fbff; margin-top:11px; letter-spacing:.02em}
+  .mod p{font-size:.78rem; line-height:1.5; color:#8fc3cd; margin-top:5px}
+  .stack{display:flex; flex-wrap:wrap; gap:6px; margin-top:11px}
+  .stack span{font-family:var(--mono); font-size:.6rem; padding:3px 8px; border-radius:6px; border:1px solid var(--line); color:#a6e8f0; background:rgba(34,230,255,.05)}
+  .mod .launch{margin-top:12px; padding-top:9px; border-top:1px solid var(--line); display:flex; justify-content:flex-end;
+    font-family:var(--mono); font-size:.62rem; letter-spacing:.2em; color:var(--cyan-bright)}
+  .mod.empty{display:grid; place-content:center; text-align:center; border-style:dashed; opacity:.55; cursor:default}
+  .mod.empty:hover{transform:none; box-shadow:none; border-color:var(--line)}
+  .mod.empty .es{font-family:var(--mono); font-size:.62rem; letter-spacing:.22em; color:var(--text-dim)}
+
+  /* ---------- query bar ---------- */
+  .query{position:relative; z-index:2; display:flex; align-items:center; gap:12px; border:1px solid var(--line); border-radius:10px;
+    padding:12px 15px; background:linear-gradient(180deg, rgba(4,24,36,.5), rgba(2,10,18,.6))}
+  .query .pre{font-family:var(--mono); color:var(--green); font-size:.85rem}
+  .query input{flex:1; background:transparent; border:0; outline:0; color:#dffbff; font-family:var(--mono); font-size:.86rem; letter-spacing:.04em}
+  .query input::placeholder{color:#4d7d86}
+  .query .caret{width:8px; height:16px; background:var(--cyan); animation:blink 1s steps(1) infinite}
+  @keyframes blink{50%{opacity:0}}
+  .query .hint{font-family:var(--mono); font-size:.58rem; letter-spacing:.14em; color:var(--text-dim)}
+
+  /* ---------- mission dossiers ---------- */
+  .dossiers{display:grid; gap:16px; grid-template-columns:repeat(3,1fr); margin-top:4px}
+  .dossier{position:relative; border:1px solid var(--line); border-radius:12px; overflow:hidden; cursor:pointer; transition:.28s;
+    background:linear-gradient(150deg, rgba(6,20,30,.8), rgba(3,9,16,.92))}
+  .dossier:hover{transform:translateY(-5px); border-color:var(--line-strong); box-shadow:0 12px 40px rgba(0,0,0,.5), 0 0 30px rgba(34,230,255,.25)}
+  .dossier .thumb{height:170px; position:relative; overflow:hidden; border-bottom:1px solid var(--line)}
+  .dossier .thumb .img{position:absolute; inset:0; background-size:cover; background-position:center; transition:.5s; filter:saturate(1.1) contrast(1.05)}
+  .dossier:hover .thumb .img{transform:scale(1.07)}
+  .dossier .thumb::after{content:""; position:absolute; inset:0; background:linear-gradient(180deg, rgba(4,7,13,0) 40%, rgba(4,7,13,.85)); pointer-events:none}
+  .dossier .thumb .ov{position:absolute; inset:0; z-index:2; opacity:.4; pointer-events:none;
+    background-image:linear-gradient(rgba(60,225,255,0.08) 1px, transparent 1px),linear-gradient(90deg, rgba(60,225,255,0.06) 1px, transparent 1px); background-size:20px 20px}
+  .dossier .thumb .file{position:absolute; top:10px; left:10px; z-index:3; font-family:var(--mono); font-size:.56rem; letter-spacing:.16em; color:var(--cyan-bright); border:1px solid var(--line-strong); padding:3px 8px; border-radius:5px; background:rgba(4,12,20,.65)}
+  .dossier .thumb .cls{position:absolute; top:10px; right:10px; z-index:3; font-family:var(--mono); font-size:.56rem; letter-spacing:.14em; color:var(--green); border:1px solid rgba(57,255,158,.4); padding:3px 8px; border-radius:5px; background:rgba(4,12,20,.65)}
+  .dossier .body{padding:14px}
+  .dossier .body .date{font-family:var(--mono); font-size:.6rem; letter-spacing:.14em; color:var(--text-dim)}
+  .dossier .body h3{font-size:1.02rem; font-weight:700; color:#e9fcff; margin-top:6px; line-height:1.25}
+  .dossier .body p{font-size:.8rem; line-height:1.55; color:#8fc3cd; margin-top:7px}
+  .dossier .body .tags{display:flex; flex-wrap:wrap; gap:6px; margin-top:11px}
+  .dossier .body .tags span{font-family:var(--mono); font-size:.58rem; padding:3px 8px; border-radius:20px; border:1px solid var(--line); color:#a6e8f0; background:rgba(34,230,255,.05)}
+
+  /* thumb art backgrounds (stand-in for project images) */
+  .art-tram{background:
+    radial-gradient(circle at 60% 40%, rgba(255,60,80,.55), transparent 45%),
+    radial-gradient(circle at 20% 70%, rgba(34,230,255,.4), transparent 40%),
+    linear-gradient(135deg,#0a0f1f,#1a0712)}
+  .art-rag{background:
+    radial-gradient(circle at 30% 30%, rgba(57,255,158,.45), transparent 45%),
+    radial-gradient(circle at 80% 70%, rgba(120,60,255,.45), transparent 45%),
+    linear-gradient(135deg,#04122b,#190a36)}
+  .art-slam{background:
+    radial-gradient(circle at 70% 35%, rgba(84,200,255,.5), transparent 40%),
+    radial-gradient(circle at 25% 75%, rgba(34,230,255,.35), transparent 40%),
+    linear-gradient(135deg,#0a345c,#1d104b)}
+
+  /* ---------- Alfred dock ---------- */
+  .alfred-btn{position:fixed; bottom:24px; right:24px; z-index:30; width:60px; height:60px; border-radius:50%;
+    border:1px solid var(--line-strong); display:grid; place-items:center; font-size:1.5rem; cursor:pointer;
+    background:linear-gradient(145deg, rgba(6,24,34,.95), rgba(3,9,17,.95));
+    box-shadow:0 0 0 1px rgba(34,230,255,.2), 0 0 26px rgba(34,230,255,.4)}
+  .alfred-btn::before{content:""; position:absolute; inset:-6px; border-radius:50%; border:1px solid rgba(34,230,255,.4); animation:ring 2.4s ease-out infinite}
+  @keyframes ring{0%{transform:scale(.85); opacity:.8}100%{transform:scale(1.3); opacity:0}}
+
+  /* ---------- bottom ticker ---------- */
+  .ticker{position:fixed; left:0; right:0; bottom:0; z-index:20; height:30px; overflow:hidden;
+    border-top:1px solid var(--line); background:linear-gradient(180deg, rgba(4,12,20,.92), rgba(3,7,13,.96));
+    display:flex; align-items:center; font-family:var(--mono); font-size:.62rem; letter-spacing:.1em}
+  .ticker .lbl{flex:0 0 auto; padding:0 14px; height:100%; display:flex; align-items:center; color:#03060c; background:var(--cyan); font-weight:bold; letter-spacing:.18em}
+  .ticker .track{white-space:nowrap; animation:tick 38s linear infinite; color:#7fc9d6; padding-left:100%}
+  .ticker .track b{color:var(--green)}
+  .ticker .track i{color:var(--amber); font-style:normal}
+  @keyframes tick{to{transform:translateX(-100%)}}
+
+  .section-label{font-family:var(--display); font-weight:600; font-size:.72rem; letter-spacing:.26em; color:var(--cyan-bright); margin:26px 2px 12px; display:flex; align-items:center; gap:10px}
+  .section-label::after{content:""; flex:1; height:1px; background:linear-gradient(90deg,var(--line-strong), transparent)}
+  .section-label .n{font-family:var(--mono); font-size:.6rem; color:var(--text-dim)}
+
+  /* responsive */
+  @media (max-width:1000px){
+    .col-7,.col-5,.col-4,.col-8{grid-column:span 12}
+    .dossiers{grid-template-columns:1fr 1fr}
+    .topstats{gap:12px}
+  }
+  @media (max-width:640px){
+    .channels,.modules{grid-template-columns:1fr}
+    .dossiers{grid-template-columns:1fr}
+    .radar-wrap{flex-direction:column; align-items:stretch}
+    .radar{margin:0 auto}
+  }
+</style>
+</head>
+<body>
+  <div class="fx-grid"></div>
+  <div class="fx-scan"></div>
+  <div class="fx-sweep"></div>
+  <div class="fx-vignette"></div>
+
+  <!-- BOOT SEQUENCE -->
+  <div id="boot">
+    <div class="boot-box">
+      <div class="boot-title">🦇 BATCAVE OPS // SECURE TERMINAL</div>
+      <div id="bootlines"></div>
+      <div class="boot-bar"><i></i></div>
+    </div>
+  </div>
+
+  <!-- APP -->
+  <div class="app" id="app">
+
+    <!-- TOP COMMAND BAR -->
+    <div class="topbar">
+      <div class="brand">
+        <span class="crest">🦇</span>
+        <div>
+          <h1>QUOC ANH <b>// BATCAVE OPS</b></h1>
+          <div class="sub">OPERATOR CONSOLE · CLEARANCE: ALPHA</div>
+        </div>
+      </div>
+      <div class="topstats">
+        <div class="stat"><span class="k">UPLINK</span><span class="v"><span class="signal"><i></i><i></i><i></i><i></i></span></span></div>
+        <div class="stat"><span class="k">ENCRYPTION</span><span class="v green">AES-256</span></div>
+        <div class="stat"><span class="k">LATENCY</span><span class="v" id="lat">14ms</span></div>
+        <div class="stat"><span class="k">SECTOR</span><span class="v">GOTHAM-7</span></div>
+        <div class="stat"><span class="k">LOCAL TIME</span><span class="v" id="clock">--:--:--</span></div>
+        <div class="led"><span class="dot"></span>SYSTEM ONLINE</div>
+      </div>
+    </div>
+
+    <!-- PRIMARY GRID -->
+    <div class="grid">
+
+      <!-- COMMS CONSOLE -->
+      <div class="panel col-7">
+        <span class="bracket tl"></span><span class="bracket tr"></span><span class="bracket bl"></span><span class="bracket br"></span>
+        <div class="panel-scan"></div>
+        <div class="phead"><span class="dot"></span><h2>COMMS // SECURE CHANNELS</h2><span class="tag live">4 CHANNELS ENCRYPTED</span></div>
+        <div class="channels">
+          <div class="chan"><div class="ico">@</div><div class="meta"><span class="lbl">Email</span><span class="id">CHANNEL:01 · DIRECT</span></div><div class="right"><span class="st">SECURE</span><span class="signal"><i></i><i></i><i></i><i></i></span></div></div>
+          <div class="chan"><div class="ico">in</div><div class="meta"><span class="lbl">LinkedIn</span><span class="id">CHANNEL:02 · NETWORK</span></div><div class="right"><span class="st">SECURE</span><span class="signal"><i></i><i></i><i></i><i></i></span></div></div>
+          <div class="chan"><div class="ico">&lt;/&gt;</div><div class="meta"><span class="lbl">GitHub</span><span class="id">CHANNEL:03 · REPO</span></div><div class="right"><span class="st">SECURE</span><span class="signal"><i></i><i></i><i></i><i></i></span></div></div>
+          <div class="chan"><div class="ico">▤</div><div class="meta"><span class="lbl">Resume</span><span class="id">CHANNEL:04 · DOSSIER</span></div><div class="right"><span class="st">SECURE</span><span class="signal"><i></i><i></i><i></i><i></i></span></div></div>
+        </div>
+      </div>
+
+      <!-- TELEMETRY / RADAR -->
+      <div class="panel col-5">
+        <span class="bracket tl"></span><span class="bracket tr"></span><span class="bracket bl"></span><span class="bracket br"></span>
+        <div class="phead"><span class="dot"></span><h2>OPS // TELEMETRY</h2><span class="tag live">LIVE</span></div>
+        <div class="radar-wrap">
+          <div class="radar">
+            <div class="ring"></div><div class="ring r2"></div><div class="ring r3"></div>
+            <div class="cross"></div><div class="cross2"></div>
+            <div class="beam"></div>
+            <div class="blip b1"></div><div class="blip b2"></div><div class="blip b3"></div>
+          </div>
+          <div class="telem">
+            <div class="trow"><div class="tl"><span>CORE LOAD</span><b id="m1v">62%</b></div><div class="meter"><i id="m1" style="width:62%"></i></div></div>
+            <div class="trow"><div class="tl"><span>MEM BUFFER</span><b id="m2v">41%</b></div><div class="meter"><i id="m2" style="width:41%"></i></div></div>
+            <div class="trow"><div class="tl"><span>NET THRUPUT</span><b id="m3v">78%</b></div><div class="meter"><i id="m3" style="width:78%"></i></div></div>
+            <svg class="spark" id="spark" viewBox="0 0 220 40" preserveAspectRatio="none"><polyline points=""/></svg>
+          </div>
+        </div>
+      </div>
+
+      <!-- FIELD MODULES / LABS -->
+      <div class="panel col-12">
+        <span class="bracket tl"></span><span class="bracket tr"></span><span class="bracket bl"></span><span class="bracket br"></span>
+        <div class="panel-scan"></div>
+        <div class="phead"><span class="dot"></span><h2>LABS // DEPLOYED MODULES</h2><span class="tag">1 MODULE LOADED · 3 SLOTS OPEN</span></div>
+        <div class="modules">
+          <div class="mod">
+            <div class="mtop"><div class="mid"><span class="d green"></span>LAB-001</div><span class="pill op">OPERATIONAL</span></div>
+            <h3>Pomodoro Engine</h3>
+            <p>A Pomodoro-inspired focus timer with structured work/break cycles and progress tracking — built to boost productivity.</p>
+            <div class="stack"><span>Next.js</span><span>Redux</span><span>Socket.io</span><span>MongoDB</span></div>
+            <div class="launch">LAUNCH ↗</div>
+          </div>
+          <div class="mod empty"><div class="es">▢ EMPTY SLOT<br><span style="opacity:.6">MODULE INBOUND…</span></div></div>
+        </div>
+      </div>
+
+      <!-- QUERY BAR -->
+      <div class="panel col-12" style="padding-top:14px">
+        <span class="bracket tl"></span><span class="bracket tr"></span><span class="bracket bl"></span><span class="bracket br"></span>
+        <div class="phead"><span class="dot"></span><h2>ARCHIVE // QUERY</h2><span class="tag">INDEX: 3 DOSSIERS</span></div>
+        <div class="query">
+          <span class="pre">&gt;</span>
+          <input placeholder="search archive by title, tag, or keyword…" />
+          <span class="caret"></span>
+          <span class="hint">RETURN TO EXECUTE</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- MISSION DOSSIERS -->
+    <div class="section-label">MISSION ARCHIVE <span class="n">// DECLASSIFIED OPERATIONS</span></div>
+    <div class="dossiers">
+      <div class="dossier">
+        <div class="thumb"><div class="img art-tram"></div><div class="ov"></div><span class="file">DOSSIER-001</span><span class="cls">CLEARED</span></div>
+        <div class="body"><span class="date">▣ 2025-12-07</span><h3>Autonomous Tram Perception</h3><p>Real-time perception stack for an autonomous rail platform — sensor fusion under low-light operating conditions.</p><div class="tags"><span>ROS2</span><span>Python</span><span>Perception</span></div></div>
+      </div>
+      <div class="dossier">
+        <div class="thumb"><div class="img art-rag"></div><div class="ov"></div><span class="file">DOSSIER-002</span><span class="cls">CLEARED</span></div>
+        <div class="body"><span class="date">▣ 2025-11-22</span><h3>RAG Knowledge Pipeline</h3><p>Full retrieval-augmented generation pipeline with vector search, reranking, and a streaming assistant interface.</p><div class="tags"><span>FastAPI</span><span>Milvus</span><span>LLM</span></div></div>
+      </div>
+      <div class="dossier">
+        <div class="thumb"><div class="img art-slam"></div><div class="ov"></div><span class="file">DOSSIER-003</span><span class="cls">CLEARED</span></div>
+        <div class="body"><span class="date">▣ 2025-10-15</span><h3>SLAM Integration</h3><p>Simultaneous localization and mapping integrated into a live robotics control loop with telemetry overlay.</p><div class="tags"><span>SLAM</span><span>C++</span><span>Robotics</span></div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ALFRED -->
+  <div class="alfred-btn" title="AI ASSIST // ALFRED">🦇</div>
+
+  <!-- BOTTOM TICKER -->
+  <div class="ticker">
+    <span class="lbl">SYS FEED</span>
+    <div class="track">
+      <b>[OK]</b> secure uplink established &nbsp;·&nbsp; <b>[OK]</b> 4/4 comms channels encrypted &nbsp;·&nbsp; <i>[INFO]</i> alfred assistant standing by &nbsp;·&nbsp; <b>[OK]</b> archive index synced — 3 dossiers declassified &nbsp;·&nbsp; <i>[INFO]</i> 3 module slots available for deployment &nbsp;·&nbsp; <b>[OK]</b> telemetry stream nominal &nbsp;·&nbsp; <b>[OK]</b> rendering at 60fps &nbsp;·&nbsp; <i>[INFO]</i> clearance level ALPHA confirmed &nbsp;·&nbsp;
+    </div>
+  </div>
+
+<script>
+  // ---- boot sequence ----
+  const lines = [
+    "> initializing kernel ............... [<span class='ok'>OK</span>]",
+    "> mounting secure filesystem ........ [<span class='ok'>OK</span>]",
+    "> establishing encrypted uplink ..... [<span class='ok'>OK</span>]",
+    "> authenticating operator ........... [<span class='ok'>ALPHA</span>]",
+    "> loading comms channels (4) ........ [<span class='ok'>OK</span>]",
+    "> spinning up telemetry feed ........ [<span class='ok'>LIVE</span>]",
+    "> indexing mission archive .......... [<span class='ok'>3</span>]",
+    "> waking alfred assistant ........... [<span class='warn'>STANDBY</span>]",
+    "> <span class='ok'>BATCAVE OPS READY</span>",
+  ];
+  const box = document.getElementById('bootlines');
+  lines.forEach((ln,i)=>{
+    const el=document.createElement('div');
+    el.className='boot-line'; el.innerHTML=ln;
+    el.style.animation=`fadeIn .25s ease forwards`;
+    el.style.animationDelay=(0.18*i+0.2)+'s';
+    box.appendChild(el);
+  });
+  const style=document.createElement('style');
+  style.textContent="@keyframes fadeIn{to{opacity:1}}";
+  document.head.appendChild(style);
+  setTimeout(()=>{ document.getElementById('boot').classList.add('done'); document.getElementById('app').classList.add('live'); }, 2500);
+
+  // ---- live clock ----
+  function tickClock(){
+    const d=new Date();
+    const p=n=>String(n).padStart(2,'0');
+    document.getElementById('clock').textContent=`${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`;
+  }
+  setInterval(tickClock,1000); tickClock();
+
+  // ---- jittering telemetry ----
+  function rnd(min,max){return Math.floor(Math.random()*(max-min)+min)}
+  setInterval(()=>{
+    const a=rnd(48,74), b=rnd(33,58), c=rnd(64,92), l=rnd(9,22);
+    document.getElementById('m1').style.width=a+'%'; document.getElementById('m1v').textContent=a+'%';
+    document.getElementById('m2').style.width=b+'%'; document.getElementById('m2v').textContent=b+'%';
+    document.getElementById('m3').style.width=c+'%'; document.getElementById('m3v').textContent=c+'%';
+    document.getElementById('lat').textContent=l+'ms';
+  },1400);
+
+  // ---- streaming sparkline ----
+  const poly=document.querySelector('#spark polyline');
+  let pts=Array.from({length:40},()=>20+Math.random()*0-0); // baseline
+  pts=Array.from({length:40},(_,i)=>20+Math.sin(i/3)*8+Math.random()*4);
+  function renderSpark(){
+    const W=220,H=40,step=W/(pts.length-1);
+    poly.setAttribute('points', pts.map((y,i)=>`${(i*step).toFixed(1)},${(H-y).toFixed(1)}`).join(' '));
+  }
+  setInterval(()=>{ pts.shift(); pts.push(8+Math.random()*26); renderSpark(); },420);
+  renderSpark();
+</script>
+</body>
+</html>
