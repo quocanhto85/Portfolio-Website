@@ -155,3 +155,170 @@ body {
     radial-gradient(circle at 70% 35%, rgba(84, 200, 255, 0.28), transparent 30%),
     linear-gradient(145deg, rgba(10, 52, 92, 0.9), rgba(29, 16, 75, 0.85));
 }
+
+/* =========================================================================
+   TACTICAL HUD — command-console layer
+   Shared keyframes + component helpers for the ops terminal redesign.
+   Layout/spacing/colour live in Tailwind utilities on the components;
+   these classes own the pseudo-elements + keyframe animations Tailwind
+   can't express cleanly.
+   ========================================================================= */
+
+@keyframes hud-pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.4; transform: scale(0.72); }
+}
+@keyframes hud-sig {
+  0%, 100% { opacity: 0.35; }
+  50% { opacity: 1; box-shadow: 0 0 8px rgba(34, 230, 255, 0.9); }
+}
+@keyframes hud-sweep-down { 0% { top: -160px; } 100% { top: 100%; } }
+@keyframes hud-rail {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(100%); }
+}
+@keyframes hud-spin { to { transform: rotate(360deg); } }
+@keyframes hud-blip {
+  0%, 100% { opacity: 0; transform: scale(0.4); }
+  10% { opacity: 1; transform: scale(1); }
+  60% { opacity: 0.2; }
+}
+@keyframes hud-blink { 50% { opacity: 0; } }
+@keyframes hud-tick { to { transform: translateX(-100%); } }
+@keyframes hud-ring {
+  0% { transform: scale(0.85); opacity: 0.8; }
+  100% { transform: scale(1.35); opacity: 0; }
+}
+@keyframes hud-panel-scan {
+  0% { top: -45%; }
+  55% { top: 115%; }
+  100% { top: 115%; }
+}
+@keyframes hud-fade-in { to { opacity: 1; } }
+@keyframes hud-boot-fill { to { width: 100%; } }
+
+/* ---- full-screen FX overlays (pointer-events:none, sit behind content) ---- */
+.hud-fx-grid {
+  position: fixed; inset: 0; pointer-events: none; z-index: 1; opacity: 0.5;
+  background-image:
+    linear-gradient(rgba(60, 225, 255, 0.045) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(60, 225, 255, 0.045) 1px, transparent 1px);
+  background-size: 44px 44px;
+  -webkit-mask-image: radial-gradient(circle at 50% 28%, #000 38%, transparent 90%);
+  mask-image: radial-gradient(circle at 50% 28%, #000 38%, transparent 90%);
+}
+.hud-fx-scan {
+  position: fixed; inset: 0; pointer-events: none; z-index: 2; opacity: 0.5;
+  background: repeating-linear-gradient(
+    0deg, rgba(0, 0, 0, 0) 0px, rgba(0, 0, 0, 0) 2px,
+    rgba(0, 20, 28, 0.22) 3px, rgba(0, 0, 0, 0) 4px);
+  mix-blend-mode: overlay;
+}
+.hud-fx-sweep {
+  position: fixed; left: 0; right: 0; height: 160px; pointer-events: none; z-index: 3; opacity: 0.7;
+  background: linear-gradient(
+    180deg, transparent, rgba(34, 230, 255, 0.06) 45%,
+    rgba(125, 249, 255, 0.10) 50%, rgba(34, 230, 255, 0.06) 55%, transparent);
+  animation: hud-sweep-down 7s linear infinite;
+}
+.hud-fx-vignette {
+  position: fixed; inset: 0; pointer-events: none; z-index: 2;
+  box-shadow: inset 0 0 200px rgba(0, 0, 0, 0.85);
+}
+
+/* ---- panel chrome ---- */
+.hud-panel { position: relative; overflow: hidden; }
+.hud-panel::before {
+  content: ""; position: absolute; inset: 0; pointer-events: none; opacity: 0.4;
+  background-image:
+    linear-gradient(rgba(60, 225, 255, 0.05) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(60, 225, 255, 0.04) 1px, transparent 1px);
+  background-size: 26px 26px;
+}
+.hud-bracket {
+  position: absolute; width: 16px; height: 16px; z-index: 2;
+  border: 2px solid rgba(60, 225, 255, 0.55); pointer-events: none;
+  opacity: 0.85; transition: border-color 0.3s ease, box-shadow 0.3s ease;
+}
+.hud-bracket-tl { top: 7px; left: 7px; border-right: 0; border-bottom: 0; }
+.hud-bracket-tr { top: 7px; right: 7px; border-left: 0; border-bottom: 0; }
+.hud-bracket-bl { bottom: 7px; left: 7px; border-right: 0; border-top: 0; }
+.hud-bracket-br { bottom: 7px; right: 7px; border-left: 0; border-top: 0; }
+.hud-panel:hover .hud-bracket {
+  border-color: #7df9ff; box-shadow: 0 0 10px rgba(34, 230, 255, 0.5);
+}
+.hud-panel-scan {
+  content: ""; position: absolute; left: 0; right: 0; top: -45%; height: 40%; z-index: 1;
+  pointer-events: none;
+  background: linear-gradient(180deg, transparent, rgba(34, 230, 255, 0.10), transparent);
+  animation: hud-panel-scan 6s ease-in-out infinite;
+}
+
+/* ---- shared animated atoms ---- */
+.hud-dot-pulse { animation: hud-pulse 1.7s ease-in-out infinite; }
+.hud-signal { display: inline-flex; align-items: flex-end; gap: 2px; height: 14px; }
+.hud-signal i { width: 3px; background: #22e6ff; border-radius: 1px; opacity: 0.4; animation: hud-sig 1.4s ease-in-out infinite; }
+.hud-signal i:nth-child(1) { height: 4px; animation-delay: 0s; }
+.hud-signal i:nth-child(2) { height: 7px; animation-delay: 0.15s; }
+.hud-signal i:nth-child(3) { height: 10px; animation-delay: 0.3s; }
+.hud-signal i:nth-child(4) { height: 14px; animation-delay: 0.45s; }
+.hud-rail {
+  position: absolute; left: 0; top: 0; height: 2px; width: 100%; pointer-events: none;
+  background: linear-gradient(90deg, transparent, #22e6ff, transparent);
+  animation: hud-rail 5s linear infinite;
+}
+.hud-caret { display: inline-block; width: 8px; height: 16px; background: #22e6ff; animation: hud-blink 1s steps(1) infinite; }
+
+/* ---- sweep-on-hover tiles (channels + modules) ---- */
+.hud-sweep-tile { position: relative; overflow: hidden; transition: transform 0.22s ease, border-color 0.22s ease, box-shadow 0.22s ease; }
+.hud-sweep-tile::after {
+  content: ""; position: absolute; inset: 0; pointer-events: none;
+  background: linear-gradient(90deg, transparent, rgba(34, 230, 255, 0.12), transparent);
+  transform: translateX(-100%); transition: transform 0.55s ease;
+}
+.hud-sweep-tile:hover::after { transform: translateX(100%); }
+
+/* ---- radar ---- */
+.hud-radar {
+  position: relative; width: 132px; height: 132px; flex: 0 0 auto; border-radius: 50%;
+  border: 1px solid rgba(60, 225, 255, 0.55); overflow: hidden;
+  background: radial-gradient(circle, rgba(34, 230, 255, 0.10), transparent 70%);
+}
+.hud-radar-ring { position: absolute; inset: 18%; border: 1px solid rgba(34, 230, 255, 0.18); border-radius: 50%; }
+.hud-radar-ring.r2 { inset: 34%; }
+.hud-radar-ring.r3 { inset: 50%; }
+.hud-radar-cross { position: absolute; left: 50%; top: 0; width: 1px; height: 100%; background: rgba(34, 230, 255, 0.15); }
+.hud-radar-cross.h { left: 0; top: 50%; width: 100%; height: 1px; }
+.hud-radar-beam {
+  position: absolute; inset: 0; border-radius: 50%; mix-blend-mode: screen;
+  background: conic-gradient(from 0deg, rgba(57, 255, 158, 0.55), rgba(57, 255, 158, 0) 45deg, transparent 360deg);
+  animation: hud-spin 3.2s linear infinite;
+}
+.hud-radar-blip { position: absolute; width: 6px; height: 6px; border-radius: 50%; background: #39ff9e; box-shadow: 0 0 10px #39ff9e; animation: hud-blip 3.2s ease-in-out infinite; }
+
+/* ---- meters ---- */
+.hud-meter { height: 6px; border: 1px solid rgba(40, 200, 230, 0.22); border-radius: 4px; overflow: hidden; background: rgba(0, 0, 0, 0.4); }
+.hud-meter-fill { display: block; height: 100%; border-radius: 3px; background: linear-gradient(90deg, #22e6ff, #39ff9e); box-shadow: 0 0 10px rgba(34, 230, 255, 0.5); transition: width 0.6s ease; }
+
+/* ---- ticker ---- */
+.hud-ticker { animation: hud-tick 38s linear infinite; }
+
+/* ---- Alfred launcher ring ---- */
+.hud-alfred-ring::before {
+  content: ""; position: absolute; inset: -6px; border-radius: 50%;
+  border: 1px solid rgba(34, 230, 255, 0.45); animation: hud-ring 2.4s ease-out infinite; pointer-events: none;
+}
+
+/* ---- boot sequence ---- */
+.hud-boot-line { opacity: 0; animation: hud-fade-in 0.25s ease forwards; }
+.hud-boot-fill { animation: hud-boot-fill 2.4s ease forwards; }
+
+/* ---- respect reduced-motion ---- */
+@media (prefers-reduced-motion: reduce) {
+  .hud-fx-sweep, .hud-panel-scan, .hud-rail, .hud-radar-beam, .hud-radar-blip,
+  .hud-signal i, .hud-dot-pulse, .hud-ticker, .hud-caret, .hud-alfred-ring::before {
+    animation: none !important;
+  }
+  .hud-fx-sweep { display: none; }
+  .hud-meter-fill { transition: none; }
+}

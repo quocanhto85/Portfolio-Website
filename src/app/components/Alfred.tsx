@@ -234,7 +234,7 @@ export default function Alfred() {
         type="button"
         aria-label={open ? "Close Alfred" : "Open Alfred"}
         onClick={() => setOpen((v) => !v)}
-        className="fixed bottom-6 right-6 z-40 flex h-14 w-14 items-center justify-center rounded-full border border-cyan-300/60 bg-[linear-gradient(145deg,rgba(0,30,38,0.95),rgba(0,8,18,0.95))] text-2xl text-cyan-100 shadow-[0_0_0_1px_rgba(34,220,255,0.2),0_0_24px_rgba(0,196,255,0.35)] transition hover:-translate-y-0.5 hover:border-cyan-200 hover:text-white"
+        className="hud-alfred-ring fixed bottom-6 right-6 z-40 flex h-14 w-14 items-center justify-center rounded-full border border-cyan-300/60 bg-[linear-gradient(145deg,rgba(0,30,38,0.95),rgba(0,8,18,0.95))] text-2xl text-cyan-100 shadow-[0_0_0_1px_rgba(34,220,255,0.2),0_0_24px_rgba(0,196,255,0.35)] transition hover:-translate-y-0.5 hover:border-cyan-200 hover:text-white"
       >
         <span aria-hidden>🦇</span>
       </button>
@@ -250,9 +250,14 @@ export default function Alfred() {
           {/* Header */}
           <header className="relative z-10 flex items-center gap-2 border-b border-cyan-300/35 px-4 py-3">
             <span aria-hidden>🦇</span>
-            <h2 className="text-sm font-semibold tracking-wide text-cyan-50">
-              Alfred
-            </h2>
+            <div className="leading-none">
+              <h2 className="font-mono text-sm font-semibold tracking-[0.18em] text-cyan-50">
+                ALFRED
+              </h2>
+              <p className="mt-0.5 font-mono text-[9px] tracking-[0.2em] text-cyan-200/55">
+                AI ASSIST // BATCAVE OPS
+              </p>
+            </div>
             <span className="ml-1 inline-flex items-center gap-1.5 rounded-full border border-emerald-300/40 bg-emerald-300/10 px-2 py-0.5 text-[10px] tracking-[0.14em] text-emerald-200">
               <span className="relative flex h-1.5 w-1.5">
                 <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-300 opacity-75" />
