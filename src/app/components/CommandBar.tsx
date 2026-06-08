@@ -95,7 +95,7 @@ export default function CommandBar() {
           AES-256
         </Stat>
         <Stat label="LATENCY">{latency}</Stat>
-        <Stat label="SECTOR">GOTHAM-7</Stat>
+        <Stat label="SECTOR">ADELAIDE-SA</Stat>
         <Stat label="LOCAL TIME">{clock}</Stat>
         <span className="inline-flex items-center gap-2 font-mono text-[0.62rem] tracking-[0.2em] text-[#39ff9e]">
           <span className="hud-dot-pulse h-2 w-2 rounded-full bg-[#39ff9e] shadow-[0_0_10px_#39ff9e]" />
