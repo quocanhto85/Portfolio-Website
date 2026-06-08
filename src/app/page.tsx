@@ -15,6 +15,7 @@ const channels = [
     id: "01",
     type: "DIRECT",
     ico: "@",
+    icoClass: "text-[0.95rem]",
     href: "mailto:quocanhtophuong@gmail.com",
     external: false,
   },
@@ -23,6 +24,7 @@ const channels = [
     id: "02",
     type: "NETWORK",
     ico: "in",
+    icoClass: "text-[0.82rem] font-semibold",
     href: "https://www.linkedin.com/in/quoc-anh-to-79024b148/",
     external: true,
   },
@@ -31,6 +33,7 @@ const channels = [
     id: "03",
     type: "REPO",
     ico: "</>",
+    icoClass: "text-[0.62rem] font-bold tracking-tighter",
     href: "https://github.com/quocanhto85",
     external: true,
   },
@@ -39,6 +42,7 @@ const channels = [
     id: "04",
     type: "DOSSIER",
     ico: "▤",
+    icoClass: "text-[0.95rem]",
     href: "/resume",
     external: false,
   },
@@ -115,7 +119,9 @@ export default async function Home() {
                   rel={c.external ? "noreferrer noopener" : undefined}
                   className="hud-sweep-tile flex items-center gap-3 rounded-[9px] border border-[rgba(40,200,230,0.22)] bg-[linear-gradient(180deg,rgba(4,26,38,0.5),rgba(2,10,18,0.6))] px-3 py-2.5 hover:-translate-y-0.5 hover:border-[rgba(60,225,255,0.55)] hover:shadow-[0_0_18px_rgba(34,230,255,0.22)]"
                 >
-                  <span className="grid h-[34px] w-[34px] flex-shrink-0 place-items-center rounded-lg border border-[rgba(40,200,230,0.22)] bg-[rgba(34,230,255,0.06)] font-mono text-[0.8rem] text-[#7df9ff]">
+                  <span
+                    className={`grid h-[34px] w-[34px] flex-shrink-0 place-items-center rounded-lg border border-[rgba(40,200,230,0.22)] bg-[rgba(34,230,255,0.06)] font-mono leading-none text-[#7df9ff] ${c.icoClass}`}
+                  >
                     {c.ico}
                   </span>
                   <span className="flex min-w-0 flex-col">
