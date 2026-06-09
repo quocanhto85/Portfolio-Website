@@ -1,4 +1,4 @@
-# Batcave Portfolio (Next.js + FastAPI)
+# Batcave Portfolio (Next.js + FastAPI + LLM chatbot with RAG)
 
 Batman-inspired dark portfolio frontend with a FastAPI backend, designed to deploy on free Vercel.
 
