@@ -7,7 +7,10 @@ queried one way and the response shape can't drift between the two callers.
 
 from __future__ import annotations
 
+import logging
+
 from sqlalchemy import select
+from sqlalchemy.exc import SQLAlchemyError
 
 from .content_models import (
     ResumeCertification,
@@ -18,6 +21,49 @@ from .content_models import (
     ResumeSkill,
 )
 
+logger = logging.getLogger(__name__)
+
+
+async def _load_projects(db) -> list[dict]:
+    """Load resume projects, tolerating a DB that predates the ``url`` column.
+
+    ``url`` was added to ``resume_project`` after the table first shipped. On a
+    database where that migration (``ALTER TABLE resume_project ADD COLUMN
+    url ...``) hasn't run yet, selecting the mapped entity raises
+    ``UndefinedColumn`` and would 500 the whole resume page. We fall back to the
+    name+bullets columns so the resume still renders (project links just stay
+    off) until the column exists. This runs before the other reads so its
+    rollback can't expire rows an async session is unable to lazily reload.
+    """
+    try:
+        rows = (
+            await db.scalars(
+                select(ResumeProject).order_by(ResumeProject.sort_order)
+            )
+        ).all()
+        return [
+            {"name": p.name, "url": p.url, "bullets": p.bullets or []}
+            for p in rows
+        ]
+    except SQLAlchemyError as exc:
+        logger.warning(
+            "resume_project.url unavailable (%s); serving projects without "
+            "links. Run: ALTER TABLE resume_project ADD COLUMN url VARCHAR(512);",
+            exc,
+        )
+        await db.rollback()
+        rows = (
+            await db.execute(
+                select(ResumeProject.name, ResumeProject.bullets).order_by(
+                    ResumeProject.sort_order
+                )
+            )
+        ).all()
+        return [
+            {"name": name, "url": None, "bullets": bullets or []}
+            for name, bullets in rows
+        ]
+
 
 async def get_resume_data(db) -> dict | None:
     """Assemble the resume in resume.json's shape, or ``None`` if not seeded.
@@ -25,6 +71,11 @@ async def get_resume_data(db) -> dict | None:
     Takes an open ``AsyncSession`` so the caller owns the session lifecycle and
     its own error handling.
     """
+    # Resilient projects load goes first: its fallback may roll back the
+    # session, which must not happen after other rows are materialized (an
+    # async session can't lazily reload expired attributes).
+    projects = await _load_projects(db)
+
     profile = await db.scalar(select(ResumeProfile).limit(1))
     if profile is None:
         return None
@@ -45,11 +96,6 @@ async def get_resume_data(db) -> dict | None:
     experience = (
         await db.scalars(
             select(ResumeExperience).order_by(ResumeExperience.sort_order)
-        )
-    ).all()
-    projects = (
-        await db.scalars(
-            select(ResumeProject).order_by(ResumeProject.sort_order)
         )
     ).all()
 
@@ -87,8 +133,5 @@ async def get_resume_data(db) -> dict | None:
             }
             for x in experience
         ],
-        "projects": [
-            {"name": p.name, "url": p.url, "bullets": p.bullets or []}
-            for p in projects
-        ],
+        "projects": projects,
     }
