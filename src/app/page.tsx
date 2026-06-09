@@ -7,6 +7,12 @@ import CommandBar from "./components/CommandBar";
 import TelemetryPanel from "./components/TelemetryPanel";
 import BootSequence from "./components/BootSequence";
 
+// Rendered on demand (this route can't be prerendered — the content API isn't
+// reachable during a Vercel build), but the expensive call to the Python content
+// API is served from Next's Data Cache for an hour (see CONTENT_REVALIDATE in
+// src/lib/content.ts). So Postgres + the Python function are hit at most once an
+// hour instead of on every visit, which removes the cold-start stall; the warm
+// Node renderer just re-uses the cached JSON.
 export const dynamic = "force-dynamic";
 
 const channels = [

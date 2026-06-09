@@ -4,7 +4,18 @@ import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import { getProjectBySlug, type ContentBlock } from "@/lib/content";
 
-export const dynamic = "force-dynamic";
+// ISR: cache each rendered article at the CDN and refresh hourly in the
+// background, instead of re-rendering + re-querying the DB on every visit.
+export const revalidate = 3600;
+
+// Prerender nothing at build time — the content API isn't reachable during a
+// Vercel build. Returning [] means each article is generated on its first
+// request and then served from the ISR cache (above) for the rest of the
+// revalidate window. That turns the slow path ("open an article") into a
+// one-time cost per article per hour instead of a cost on every visit.
+export async function generateStaticParams() {
+  return [];
+}
 
 export async function generateMetadata({
   params,

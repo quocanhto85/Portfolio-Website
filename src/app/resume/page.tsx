@@ -1,6 +1,11 @@
 import Link from "next/link";
 import { getResume } from "@/lib/content";
 
+// Rendered on demand (this route can't be prerendered — the content API isn't
+// reachable during a Vercel build), but the expensive call to the Python content
+// API is served from Next's Data Cache for an hour (see CONTENT_REVALIDATE in
+// src/lib/content.ts). So Postgres + the Python function are hit at most once an
+// hour instead of on every visit, which removes the cold-start stall.
 export const dynamic = "force-dynamic";
 
 function Section({

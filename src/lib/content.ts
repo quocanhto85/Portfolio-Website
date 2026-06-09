@@ -6,9 +6,17 @@
  * files are NO LONGER imported by the running app — they were one-time seed input
  * (now in `backend/seed_data/`, loaded via `python -m backend.seed_content`).
  *
- * These helpers run only in Server Components. All fetches are `no-store`, so the
- * pages render at request time straight from the DB; nothing is baked into the
- * bundle at build (the API isn't reachable during a Vercel build anyway).
+ * These helpers run only in Server Components, and every fetch opts into Next's
+ * Data Cache for an hour (`next: { revalidate }`). The first request after the
+ * window lapses renders from the DB; the result is then reused for every other
+ * request until it goes stale (refreshed in the background). That takes the
+ * Python function + Postgres off the hot path for the vast majority of requests,
+ * which is what removes the multi-second cold-start hit visitors were seeing.
+ *
+ * Nothing is fetched at build time — the content API isn't reachable during a
+ * Vercel build — so the article route prerenders no params (`generateStaticParams`
+ * returns []) and the home/resume routes render on demand. They still avoid the
+ * cold start because the underlying fetch is served from the Data Cache.
  */
 
 export type PaperMeta = {
@@ -108,8 +116,18 @@ function apiBase(): string {
   return "";
 }
 
+/**
+ * How long rendered content stays cached at the CDN before Next refreshes it in
+ * the background (stale-while-revalidate). Resume + articles change rarely, so
+ * an hour of staleness buys near-instant loads. The `content` cache tag lets a
+ * future seed/admin hook call `revalidateTag("content")` to refresh on demand.
+ */
+export const CONTENT_REVALIDATE = 3600;
+
 async function getJson<T>(path: string): Promise<T> {
-  const res = await fetch(`${apiBase()}${path}`, { cache: "no-store" });
+  const res = await fetch(`${apiBase()}${path}`, {
+    next: { revalidate: CONTENT_REVALIDATE, tags: ["content"] },
+  });
   if (!res.ok) throw new Error(`content API ${path} -> ${res.status}`);
   return (await res.json()) as T;
 }
@@ -128,7 +146,7 @@ export async function getProjects(): Promise<ArticleSummary[]> {
 export async function getProjectBySlug(slug: string): Promise<Article | null> {
   const res = await fetch(
     `${apiBase()}/api/content/projects/${encodeURIComponent(slug)}`,
-    { cache: "no-store" }
+    { next: { revalidate: CONTENT_REVALIDATE, tags: ["content"] } }
   );
   if (res.status === 404) return null;
   if (!res.ok) throw new Error(`content API project ${slug} -> ${res.status}`);

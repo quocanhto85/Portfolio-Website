@@ -10,6 +10,7 @@ durable conversation log in that mode.
 from __future__ import annotations
 
 import logging
+import os
 
 from sqlalchemy import make_url
 from sqlalchemy.engine import URL
@@ -74,7 +75,18 @@ class Base(DeclarativeBase):
 
 
 async def init_db() -> None:
-    """Create tables if the DB is writable; degrade quietly otherwise."""
+    """Create tables if the DB is writable; degrade quietly otherwise.
+
+    On Vercel every cold start re-runs the lifespan hook, so this would issue a
+    ``create_all`` round-trip to Postgres on the critical path of the first
+    request after each scale-to-zero — pure added latency, since the production
+    schema is already created out-of-band by seeding. We skip it there (detected
+    via Vercel's ``VERCEL`` env var) and only bootstrap locally, where the
+    default SQLite file genuinely needs its tables created on first run.
+    """
+    if os.environ.get("VERCEL"):
+        return
+
     # Import here so models are registered on Base.metadata before create_all.
     from . import content_models, models  # noqa: F401
 
