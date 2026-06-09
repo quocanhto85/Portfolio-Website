@@ -91,7 +91,7 @@ export type Resume = {
     bullets: string[];
     reference?: Reference;
   }[];
-  projects: { name: string; bullets: string[] }[];
+  projects: { name: string; url?: string; bullets: string[] }[];
 };
 
 /**

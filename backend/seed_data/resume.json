@@ -159,7 +159,8 @@
   ],
   "projects": [
     {
-      "name": "Object-Based Visual SLAM for Urban Tram Navigation",
+      "name": "Master's Thesis: Towards Object-Based Visual SLAM for Urban Tram Navigation",
+      "url": "https://github.com/quocanhto85/Object-based-Visual-SLAM",
       "bullets": [
         "Developed an end-to-end Visual SLAM pipeline integrating YOLOv8 object detection, ByteTrack multi-object tracking, and CubeSLAM-based 3D cuboid reconstruction into ORB-SLAM3, achieving 0.52 mean 3D IoU and 65% precision on KITTI odometry sequences.",
         "Demonstrated cross-dataset generalisation by training on BDD100K (100K images) and evaluating on KITTI; ByteTrack integration reduced redundant map entities by 81.2% through persistent object identity tracking.",
@@ -168,6 +169,7 @@
     },
     {
       "name": "Hybrid Recommender System for Grocery Retail",
+      "url": "https://github.com/quocanhto85/Hybrid-Recommender-System",
       "bullets": [
         "Built a hybrid recommender combining FP-Growth frequent pattern mining and item-based collaborative filtering (KNN, cosine similarity) with recency-aware personalisation on around 38,600 grocery transactions.",
         "Hybrid model outperformed standalone collaborative filtering across key metrics: Precision@5 (0.2040 vs. 0.2014), Recall@5 (0.1911 vs. 0.1886), and Hit Rate@5 (0.6529 vs. 0.6476), while addressing cold start and 98.86% matrix sparsity via frequent-itemset fallback and eager pre-computation for real-time inference."
@@ -175,12 +177,14 @@
     },
     {
       "name": "RNNs for Stock Price Prediction",
+      "url": "https://github.com/quocanhto85/RNNs-for-stock-price-prediction",
       "bullets": [
         "Designed and optimised a Recurrent Neural Network (RNN) model using Stacked LSTM architectures in Python with TensorFlow and Keras, achieving a 47% reduction in MSE for stock price forecasting vs. traditional methods."
       ]
     },
     {
       "name": "Diabetes Prediction using Perceptron",
+      "url": "https://github.com/quocanhto85/predict-diabetes-using-perceptron",
       "bullets": [
         "Optimised a Perceptron algorithm for diabetes prediction, achieving 74.68% accuracy on the Pima Indians Diabetes dataset through hyperparameter tuning, demonstrating mastery of supervised learning fundamentals."
       ]

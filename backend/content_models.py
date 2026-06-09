@@ -117,6 +117,7 @@ class ResumeProject(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     sort_order: Mapped[int] = mapped_column(Integer, default=0, index=True)
     name: Mapped[str] = mapped_column(String(512))
+    url: Mapped[Optional[str]] = mapped_column(String(512), nullable=True)
     bullets: Mapped[list[str]] = mapped_column(JSON, default=list)
 
 

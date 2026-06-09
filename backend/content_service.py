@@ -88,6 +88,7 @@ async def get_resume_data(db) -> dict | None:
             for x in experience
         ],
         "projects": [
-            {"name": p.name, "bullets": p.bullets or []} for p in projects
+            {"name": p.name, "url": p.url, "bullets": p.bullets or []}
+            for p in projects
         ],
     }

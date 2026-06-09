@@ -116,7 +116,10 @@ def seed_resume(db, resume: dict[str, Any]) -> dict[str, int]:
     for i, proj in enumerate(resume.get("projects", [])):
         db.add(
             ResumeProject(
-                sort_order=i, name=proj["name"], bullets=proj.get("bullets", [])
+                sort_order=i,
+                name=proj["name"],
+                url=proj.get("url"),
+                bullets=proj.get("bullets", []),
             )
         )
 

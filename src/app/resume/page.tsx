@@ -208,7 +208,18 @@ export default async function ResumePage() {
                 {projects.map((project) => (
                   <div key={project.name} className="space-y-3">
                     <h3 className="font-semibold text-cyan-50">
-                      {project.name}
+                      {project.url ? (
+                        <a
+                          href={project.url}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="underline underline-offset-4 transition hover:text-cyan-200"
+                        >
+                          {project.name}
+                        </a>
+                      ) : (
+                        project.name
+                      )}
                     </h3>
                     <BulletList items={project.bullets} />
                   </div>
