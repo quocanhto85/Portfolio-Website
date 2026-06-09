@@ -18,8 +18,6 @@ from __future__ import annotations
 import logging
 from typing import Any, Optional
 
-from pymilvus import DataType, MilvusClient
-
 from ..config import settings
 
 logger = logging.getLogger(__name__)
@@ -27,7 +25,14 @@ logger = logging.getLogger(__name__)
 OUTPUT_FIELDS = ["id", "source_type", "source_id", "title", "text", "metadata"]
 
 
-def connect() -> MilvusClient:
+def connect() -> "MilvusClient":
+    # Imported lazily (not at module top) so importing this module — which the
+    # Alfred router pulls in at startup via rag.retrieval — doesn't drag
+    # pymilvus's heavy gRPC/protobuf stack into every serverless cold start.
+    # Content and resume requests never touch Milvus, so they shouldn't pay the
+    # ~1-3s it takes to import it. RAG/chat pays it lazily on first use instead.
+    from pymilvus import MilvusClient
+
     return MilvusClient(
         uri=settings.milvus_uri,
         token=settings.milvus_token or None,
@@ -44,6 +49,8 @@ class VectorStore:
         self.client = connect()
 
     def schema(self):
+        from pymilvus import DataType
+
         # Typed scalar columns (not one JSON blob) so each field is its own
         # readable column in Attu; metadata stays a native JSON field.
         schema = self.client.create_schema(auto_id=False, enable_dynamic_field=False)

@@ -45,6 +45,5 @@ recovery-codes-vercel.txt
 *.tsbuildinfo
 next-env.d.ts
 
-/.claude
 
 /.agents
